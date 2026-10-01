@@ -181,6 +181,7 @@ final class WindowsUsageModel: @unchecked Sendable {
         for (name, hours) in hourlySources where enabledTools.contains(name) {
             HourlyHistoryStore.shared.replace(tool: name, hours: hours, force: !incremental)
         }
+        GenerationSpeedStore.shared.refresh(enabledTools: enabledTools)
         var results: [String: ScanSnapshot] = [:]
         if enabledTools.contains("OpenClaw") {
             let usage = openclawService.todayUsage()

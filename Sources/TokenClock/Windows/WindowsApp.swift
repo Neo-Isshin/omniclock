@@ -384,7 +384,7 @@ final class WindowsApp: @unchecked Sendable {
         let detailHeader = [L.tr(groupingMode == .model ? "detail.model" : "detail.instance"),
                             L.tr(valueMode == .tokens ? "detail.todayUsage" : "detail.cost"),
                             L.tr(valueMode == .tokens ? "detail.messages" : "detail.share"),
-                            groupingMode == .session ? L.tr("detail.cacheRate") : ""].joined(separator: "\t")
+                            groupingMode == .session ? L.tr("detail.cacheRate") : "t/s"].joined(separator: "\t")
         // The dial remains a compact per-pixel-alpha layered HWND. Win32Shim presents the
         // fixed 320×547 detail card in a separate non-layered Desktop Acrylic sibling, so
         // expanding never turns the round widget back into a tall rectangular host.
@@ -758,10 +758,10 @@ final class WindowsApp: @unchecked Sendable {
             for group in groups.prefix(10) {
                 let key = "model:\(group.id)"
                 let open = expandedDetailKeys.contains(key)
-                rows.append(DetailRow(key: key, label: "\(group.emoji) \(group.name)", value: primaryValue(tokens: group.totalTokens, cacheRead: group.totalCacheReadTokens, cost: group.totalCost), messages: secondaryValue(tokens: group.totalTokens, cacheRead: group.totalCacheReadTokens, messages: group.totalMessages, grand: grand), cache: "", isChild: false, expanded: open))
+                rows.append(DetailRow(key: key, label: "\(group.emoji) \(group.name)", value: primaryValue(tokens: group.totalTokens, cacheRead: group.totalCacheReadTokens, cost: group.totalCost), messages: secondaryValue(tokens: group.totalTokens, cacheRead: group.totalCacheReadTokens, messages: group.totalMessages, grand: grand), cache: group.generationSpeed.formatted, isChild: false, expanded: open))
                 if open {
                     for contribution in group.contributions.prefix(5) {
-                        rows.append(DetailRow(key: nil, label: "\(contribution.emoji) \(contribution.tool)", value: primaryValue(tokens: contribution.tokens, cacheRead: contribution.cacheReadTokens, cost: contribution.cost), messages: secondaryValue(tokens: contribution.tokens, cacheRead: contribution.cacheReadTokens, messages: contribution.messages, grand: grand), cache: "", isChild: true, expanded: false))
+                        rows.append(DetailRow(key: nil, label: "\(contribution.emoji) \(contribution.tool)", value: primaryValue(tokens: contribution.tokens, cacheRead: contribution.cacheReadTokens, cost: contribution.cost), messages: secondaryValue(tokens: contribution.tokens, cacheRead: contribution.cacheReadTokens, messages: contribution.messages, grand: grand), cache: GenerationSpeedStore.shared.summary(model: group.name, providers: [contribution.tool]).formatted, isChild: true, expanded: false))
                     }
                 }
             }
