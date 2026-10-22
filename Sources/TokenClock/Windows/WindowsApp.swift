@@ -1614,7 +1614,7 @@ final class WindowsApp: @unchecked Sendable {
             rememberSubscriptionAccount(
                 provider: .claude, identity: claude.account, plan: claude.planType,
                 groups: [ProviderQuotaGroup(id: "claude:subscription", name: "Subscription", buckets: claude.buckets)],
-                refreshedAt: claude.refreshedAt, source: "Claude OAuth API"
+                refreshedAt: claude.refreshedAt, source: claude.sourceDescription
             )
         } else if claude.status == .unavailable { activeSubscriptionAccountIDs[.claude] = nil }
         rememberProviderQuota(antigravity, provider: .antigravity)
