@@ -289,7 +289,7 @@ struct QuickToolEditorView: View {
     }
 }
 /// One labelled shortcut at a time; hovering never invokes a tool or starts a check.
-private struct QuickToolHoverStrip: View {
+struct QuickToolHoverStrip: View {
     let items: [QuickTool]
     let color: Color
     let action: (QuickTool) -> Void
@@ -304,11 +304,8 @@ private struct QuickToolHoverStrip: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let spacing: CGFloat = 6
-            let otherCount = CGFloat(max(0, items.count - 1))
-            let narrowWidth = min(32, max(24, (geometry.size.width - spacing * otherCount - 110) / max(1, otherCount)))
-            let expandedWidth = max(narrowWidth, geometry.size.width - (narrowWidth + spacing) * otherCount)
-            HStack(spacing: spacing) {
+            let layout = QuickToolHoverLayout(items: items, expanded: expanded, width: geometry.size.width)
+            HStack(spacing: QuickToolHoverLayout.spacing) {
                 ForEach(items) { item in
                     let isExpanded = expanded == item
                     Button { action(item) } label: {
@@ -327,7 +324,7 @@ private struct QuickToolHoverStrip: View {
                         }
                         .foregroundStyle(color)
                         .padding(.horizontal, isExpanded ? 9 : 0)
-                        .frame(width: isExpanded ? expandedWidth : narrowWidth, height: 46)
+                        .frame(width: isExpanded ? layout.expandedWidth : layout.narrowWidth, height: 46)
                         .background(color.opacity(hoveredTool == item ? 0.12 : 0.06), in: RoundedRectangle(cornerRadius: 10))
                         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(color.opacity(0.12), lineWidth: 0.6))
                         .contentShape(Rectangle())
@@ -335,22 +332,10 @@ private struct QuickToolHoverStrip: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(item.title)
                     .accessibilityIdentifier("quick-tool.\(item.rawValue)")
-                    .onHover { hovering in hover(item, hovering: hovering) }
                     .instantHint(item.hint)
                 }
             }
-            .onHover { hovering in
-                resetTask?.cancel()
-                if !hovering {
-                    hoveredTool = nil
-                    expansionTask?.cancel()
-                    resetTask = Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 200000000)
-                        guard !Task.isCancelled else { return }
-                        withAnimation(.easeInOut(duration: 0.16)) { expandedTool = nil }
-                    }
-                }
-            }
+            .background(QuickToolHoverTracking(regions: layout.regions, onHover: hover))
         }
         .frame(height: items.isEmpty ? 0 : 46)
         .onDisappear {
@@ -367,19 +352,22 @@ private struct QuickToolHoverStrip: View {
         }
     }
 
-    private func hover(_ item: QuickTool, hovering: Bool) {
-        if hovering {
-            resetTask?.cancel()
-            expansionTask?.cancel()
-            hoveredTool = item
+    private func hover(_ item: QuickTool?) {
+        resetTask?.cancel()
+        expansionTask?.cancel()
+        hoveredTool = item
+        if let item {
             expansionTask = Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 150000000)
                 guard !Task.isCancelled, hoveredTool == item else { return }
                 withAnimation(.easeInOut(duration: 0.16)) { expandedTool = item }
             }
-        } else if hoveredTool == item {
-            hoveredTool = nil
-            expansionTask?.cancel()
+        } else {
+            resetTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 200000000)
+                guard !Task.isCancelled, hoveredTool == nil else { return }
+                withAnimation(.easeInOut(duration: 0.16)) { expandedTool = nil }
+            }
         }
     }
 }
