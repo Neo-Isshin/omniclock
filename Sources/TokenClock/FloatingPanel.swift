@@ -153,6 +153,7 @@ final class DropdownPanel: NSPanel, NSWindowDelegate {
     }
 
     func hide() {
+        PanelResizeEdgesView.releaseCursor(in: self)
         orderOut(nil)
     }
 
@@ -297,6 +298,7 @@ final class NotificationPanel: NSPanel, NSWindowDelegate {
     }
 
     func hide() {
+        PanelResizeEdgesView.releaseCursor(in: self)
         orderOut(nil)
     }
 }
@@ -420,13 +422,23 @@ final class PanelResizeEdgesView: NSView {
     }
     private var drag: Drag?
     private var edgeTrackingArea: NSTrackingArea?
+    private var cursorTrackingAreas: [NSTrackingArea] = []
     private var hoveredEdge: PanelResizeEdge?
+    private weak var cursorWindow: NSWindow?
+    private var restoresCursorRects = false
+    private var cursorRevision = 0
+    private var cursorReapplyPending = false
     let horizontalInset: CGFloat
 
     init(frame: NSRect, horizontalInset: CGFloat = 0) {
         self.horizontalInset = horizontalInset
         super.init(frame: frame)
+        NotificationCenter.default.addObserver(self, selector: #selector(windowVisibilityChanged(_:)),
+            name: NSWindow.didChangeOcclusionStateNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(windowVisibilityChanged(_:)),
+            name: NSWindow.willCloseNotification, object: nil)
     }
+    deinit { NotificationCenter.default.removeObserver(self) }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     static func wrapping(_ content: NSView, horizontalInset: CGFloat = 0) -> NSView {
@@ -461,11 +473,21 @@ final class PanelResizeEdgesView: NSView {
             return true
         case .mouseMoved, .cursorUpdate:
             let point = edges.convert(event.locationInWindow, from: nil)
-            guard PanelResizeGeometry.edge(at: point, in: edges.bounds, horizontalInset: edges.horizontalInset) != nil else { return false }
+            let isEdge = PanelResizeGeometry.edge(at: point, in: edges.bounds, horizontalInset: edges.horizontalInset) != nil
             edges.updateCursor(for: event, force: true)
-            return true
+            return isEdge
         default: return false
         }
+    }
+
+    static func releaseCursor(in panel: NSPanel) {
+        (panel.contentView as? PanelResizeContainerView)?.edges.releaseResizeCursor()
+    }
+
+    @objc private func windowVisibilityChanged(_ notification: Notification) {
+        guard let source = notification.object as? NSWindow, source === window,
+              notification.name == NSWindow.willCloseNotification || !source.isVisible else { return }
+        releaseResizeCursor()
     }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -489,12 +511,18 @@ final class PanelResizeEdgesView: NSView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let edgeTrackingArea { removeTrackingArea(edgeTrackingArea) }
-        // One area avoids an exiting side resetting the cursor just after a corner enters.
+        for area in cursorTrackingAreas { removeTrackingArea(area) }
+        // AppKit explicitly does not deliver cursorUpdate with activeAlways.
+        // Keep inactive hover delivery separate from the native cursor-update regions.
         let area = NSTrackingArea(rect: .zero,
-            options: [.mouseEnteredAndExited, .mouseMoved, .cursorUpdate, .activeAlways, .inVisibleRect],
+            options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect],
             owner: self, userInfo: nil)
         addTrackingArea(area)
         edgeTrackingArea = area
+        cursorTrackingAreas = PanelResizeGeometry.regions(in: bounds, horizontalInset: horizontalInset).map {
+            NSTrackingArea(rect: $0.rect, options: [.cursorUpdate, .activeInActiveApp], owner: self, userInfo: nil)
+        }
+        for area in cursorTrackingAreas { addTrackingArea(area) }
     }
 
     override func setFrameSize(_ newSize: NSSize) {
@@ -505,15 +533,51 @@ final class PanelResizeEdgesView: NSView {
     private func updateCursor(for event: NSEvent, force: Bool = false) {
         let edge = drag?.edge ?? PanelResizeGeometry.edge(at: convert(event.locationInWindow, from: nil),
             in: bounds, horizontalInset: horizontalInset)
-        guard force || edge != hoveredEdge else { return }
-        if let edge { edge.cursor.set() } else if hoveredEdge != nil { NSCursor.arrow.set() }
+        guard let edge else { releaseResizeCursor(); return }
+        guard let window, window.isVisible else { return }
+        if cursorWindow == nil {
+            cursorWindow = window
+            restoresCursorRects = window.areCursorRectsEnabled
+            if restoresCursorRects { window.disableCursorRects() }
+        }
+        let changed = edge != hoveredEdge
         hoveredEdge = edge
+        if changed || force { edge.cursor.set() }
+        // NSHostingView can reset the cursor later in the same event dispatch.
+        // Reapply once at its end, only while this visible border still owns it.
+        guard !cursorReapplyPending else { return }
+        cursorReapplyPending = true
+        let revision = cursorRevision
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.cursorRevision == revision else { return }
+            self.cursorReapplyPending = false
+            guard let edge = self.hoveredEdge, self.cursorWindow?.isVisible == true else { return }
+            edge.cursor.set()
+        }
     }
-    override func cursorUpdate(with event: NSEvent) { updateCursor(for: event, force: true) }
+
+    private func releaseResizeCursor() {
+        guard cursorWindow != nil || hoveredEdge != nil else { return }
+        cursorRevision += 1
+        cursorReapplyPending = false
+        if restoresCursorRects, let cursorWindow {
+            cursorWindow.enableCursorRects()
+            cursorWindow.invalidateCursorRects(for: self)
+        }
+        cursorWindow = nil
+        restoresCursorRects = false
+        hoveredEdge = nil
+        NSCursor.arrow.set()
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        updateCursor(for: event, force: true)
+        if hoveredEdge == nil { super.cursorUpdate(with: event) }
+    }
     override func mouseEntered(with event: NSEvent) { updateCursor(for: event, force: true) }
-    override func mouseMoved(with event: NSEvent) { updateCursor(for: event) }
+    override func mouseMoved(with event: NSEvent) { updateCursor(for: event, force: true) }
     override func mouseExited(with event: NSEvent) {
-        if drag == nil, hoveredEdge != nil { hoveredEdge = nil; NSCursor.arrow.set() }
+        if drag == nil { releaseResizeCursor() }
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -542,7 +606,7 @@ final class PanelResizeEdgesView: NSView {
     }
 
     override func viewWillMove(toWindow newWindow: NSWindow?) {
-        if newWindow == nil { finishResize() }
+        if newWindow == nil { finishResize(); releaseResizeCursor() }
         super.viewWillMove(toWindow: newWindow)
     }
 
@@ -552,7 +616,7 @@ final class PanelResizeEdgesView: NSView {
         if let window {
             window.delegate?.windowDidEndLiveResize?(Notification(name: NSWindow.didEndLiveResizeNotification, object: window))
         }
-        NSCursor.arrow.set()
+        releaseResizeCursor()
     }
 }
 

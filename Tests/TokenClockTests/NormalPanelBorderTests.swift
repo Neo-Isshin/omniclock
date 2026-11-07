@@ -112,17 +112,30 @@ import XCTest
         let edges = try XCTUnwrap(PanelResizeEdgesView.install(on: panel))
         edges.updateTrackingAreas()
         XCTAssertTrue(panel.acceptsMouseMovedEvents)
-        XCTAssertEqual(edges.trackingAreas.count, 1)
-        XCTAssertTrue(edges.trackingAreas[0].options.contains(.activeAlways))
-        XCTAssertTrue(edges.trackingAreas[0].options.contains(.mouseMoved))
+        XCTAssertTrue(edges.trackingAreas.contains { $0.options.contains(.activeAlways) && $0.options.contains(.mouseMoved) })
+        XCTAssertTrue(edges.trackingAreas.contains { $0.options.contains(.activeInActiveApp) && $0.options.contains(.cursorUpdate) })
+        XCTAssertFalse(edges.trackingAreas.contains { $0.options.contains(.activeAlways) && $0.options.contains(.cursorUpdate) })
         NSCursor.arrow.set()
         for point in [NSPoint(x: panel.frame.minX + 9, y: panel.frame.midY),
                       NSPoint(x: panel.frame.maxX - 9, y: panel.frame.midY),
                       NSPoint(x: panel.frame.maxX - 9, y: panel.frame.maxY - 2)] {
             panel.sendEvent(try event(.mouseMoved, screenPoint: point, panel: panel))
             XCTAssertFalse(NSCursor.current === NSCursor.arrow)
+            XCTAssertFalse(panel.areCursorRectsEnabled)
+            // Model a late reset by the hosting view; the end-of-dispatch correction must win.
+            NSCursor.arrow.set()
+            settle(content)
+            XCTAssertFalse(NSCursor.current === NSCursor.arrow)
         }
         edges.mouseMoved(with: try event(.mouseMoved, screenPoint: NSPoint(x: panel.frame.midX, y: panel.frame.midY), panel: panel))
+        XCTAssertTrue(NSCursor.current === NSCursor.arrow)
+        XCTAssertTrue(panel.areCursorRectsEnabled)
+        let edgePoint = NSPoint(x: panel.frame.maxX - 9, y: panel.frame.midY)
+        panel.sendEvent(try event(.mouseMoved, screenPoint: edgePoint, panel: panel))
+        XCTAssertFalse(panel.areCursorRectsEnabled)
+        panel.hide()
+        settle(content)
+        XCTAssertTrue(panel.areCursorRectsEnabled)
         XCTAssertTrue(NSCursor.current === NSCursor.arrow)
         XCTAssertFalse(panel.isKeyWindow)
     }
