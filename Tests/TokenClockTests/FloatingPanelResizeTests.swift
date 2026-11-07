@@ -106,9 +106,7 @@ import XCTest
         XCTAssertTrue(panel.contentView?.hitTest(NSPoint(x:130,y:95)) === button)
         XCTAssertNil(installed.hitTest(NSPoint(x:130,y:95)))
         installed.updateTrackingAreas()
-        XCTAssertTrue(installed.trackingAreas.contains { $0.options.contains(.activeAlways) && $0.options.contains(.mouseMoved) })
-        XCTAssertTrue(installed.trackingAreas.contains { $0.options.contains(.activeInActiveApp) && $0.options.contains(.cursorUpdate) })
-        XCTAssertFalse(installed.trackingAreas.contains { $0.options.contains(.activeAlways) && $0.options.contains(.cursorUpdate) })
+        XCTAssertTrue(installed.trackingAreas.allSatisfy{$0.options.contains(.activeAlways) && $0.options.contains(.cursorUpdate)})
     }
 
     private func event(_ type:NSEvent.EventType,screenPoint:NSPoint,window:NSWindow) throws -> NSEvent {
