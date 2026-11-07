@@ -111,7 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             height: FloatingPanel.collapsedHeight
         )
         detailContentView.autoresizingMask = [.width, .height]
-        dropdownPanel.contentView = PanelResizeEdgesView.wrapping(detailContentView)
+        dropdownPanel.contentView = PanelResizeEdgesView.wrapping(detailContentView, horizontalInset: FloatingPanel.detailHorizontalInset)
 
         let notificationView = NotificationCenterView(
             viewModel: viewModel,
@@ -1650,7 +1650,7 @@ private struct NotificationCenterView: View {
                 Button(action: onClose) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Color.black.opacity(0.5))
+                        .foregroundColor(viewModel.selectedTheme.dropdownSubtextColor)
                 }
                 .buttonStyle(.plain)
                 .help(L10n.shared.tr("about.close"))
@@ -1665,7 +1665,7 @@ private struct NotificationCenterView: View {
                 Spacer()
                 Text(L10n.shared.tr("notification.empty"))
                     .font(.system(size: 12))
-                    .foregroundColor(Color.black.opacity(0.65))
+                    .foregroundColor(viewModel.selectedTheme.dropdownSubtextColor)
                     .frame(maxWidth: .infinity, alignment: .center)
                 Spacer()
             } else {
@@ -1697,7 +1697,8 @@ private struct NotificationCenterView: View {
                         .stroke(viewModel.selectedTheme.dropdownBorderColor, lineWidth: 1)
                 )
         )
-        .foregroundColor(.black)
+        .foregroundColor(viewModel.selectedTheme.dropdownTextColor)
+        .preferredColorScheme(viewModel.selectedTheme.dropdownColorScheme)
     }
 
     private func notificationRow(
@@ -1708,7 +1709,7 @@ private struct NotificationCenterView: View {
             HStack(spacing: 6) {
                 Image(systemName: iconName(for: notification.kind))
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Color.black.opacity(0.72))
+                    .foregroundColor(viewModel.selectedTheme.dropdownTextColor)
                     .frame(width: 14)
                 Text(notification.title)
                     .font(.system(size: 12, weight: .semibold))
@@ -1716,22 +1717,22 @@ private struct NotificationCenterView: View {
                 Spacer(minLength: 8)
                 Text(timeLabel(notification.createdAt))
                     .font(.system(size: 10))
-                    .foregroundColor(Color.black.opacity(0.58))
+                    .foregroundColor(viewModel.selectedTheme.dropdownSubtextColor)
                 if showsDisclosure {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 9, weight: .semibold))
-                        .foregroundColor(Color.black.opacity(0.45))
+                        .foregroundColor(viewModel.selectedTheme.dropdownSubtextColor)
                 }
             }
             Text(notification.message)
                 .font(.system(size: 11))
-                .foregroundColor(Color.black.opacity(0.65))
+                .foregroundColor(viewModel.selectedTheme.dropdownSubtextColor)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.black.opacity(0.06))
+                .fill(viewModel.selectedTheme.dropdownTextColor.opacity(0.06))
         )
     }
 

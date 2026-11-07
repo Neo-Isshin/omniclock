@@ -244,7 +244,7 @@ struct DetailDropdownView: View {
                         action: { onUsageIncludesCacheToggle?() }
                     )
                     .frame(width: 64)
-                    .onHover { cacheHovered = $0 }
+                    .passiveHover { cacheHovered = $0 }
 
                     compactAction(
                         icon: "circle.fill",
@@ -256,7 +256,7 @@ struct DetailDropdownView: View {
                         action: { onQuickContrast?() }
                     )
                     .frame(width: 58)
-                    .onHover { textColorHovered = $0 }
+                    .passiveHover { textColorHovered = $0 }
 
                     compactAction(
                         icon: "dollarsign.circle",
@@ -268,7 +268,7 @@ struct DetailDropdownView: View {
                     )
                     .frame(width: 58)
                     .instantHint(toolboxText("切换用量/消息/占比与 API 费用/TTFT/速度", "Switch Usage/Msgs/Share and API estimate/TTFT/speed"))
-                    .onHover { percentHovered = $0 }
+                    .passiveHover { percentHovered = $0 }
                 }
                 .padding(.horizontal, 4)
                 .padding(.bottom, 3)
@@ -325,8 +325,9 @@ struct DetailDropdownView: View {
         }
         .frame(maxHeight: .infinity, alignment: .top)
         .background(theme.dropdownBgColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .padding(.horizontal, 8)
+        .padding(.horizontal, FloatingPanel.detailHorizontalInset)
         .padding(.bottom, 10)
+        .preferredColorScheme(theme.dropdownColorScheme)
     }
 
     private func launcherCard(
@@ -734,7 +735,7 @@ struct DetailDropdownView: View {
         .buttonStyle(ChipPressStyle())
         .instantHint(L10n.shared.tr("notification.open"))
         .accessibilityLabel(Text(L10n.shared.tr("notification.open")))
-        .onHover { notificationHovered = $0 }
+        .passiveHover { notificationHovered = $0 }
         .offset(x: 6)
     }
 
@@ -749,7 +750,7 @@ struct DetailDropdownView: View {
         .buttonStyle(.plain)
         .instantHint(L10n.shared.tr("menu.shareUsage"))
         .accessibilityLabel(Text(L10n.shared.tr("menu.shareUsage")))
-        .onHover { shareHovered = $0 }
+        .passiveHover { shareHovered = $0 }
         .offset(x: 6)
     }
 

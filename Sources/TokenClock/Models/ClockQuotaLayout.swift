@@ -13,4 +13,9 @@ struct ClockQuotaLayout {
                y: (diameter - totalHeight) / 2 + CGFloat(index) * (ringSize + spacing),
                width: ringSize, height: ringSize)
     }
+    func appKitHitFrame(at index: Int) -> CGRect {
+        let frame = frame(at: index)
+        return CGRect(x: frame.minX, y: diameter - frame.maxY, width: frame.width, height: frame.height)
+            .insetBy(dx: -3 * scale, dy: -3 * scale)
+    }
 }

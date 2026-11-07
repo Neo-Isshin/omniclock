@@ -29,6 +29,7 @@ struct ClockContentView: View {
         let d = viewModel.clockSize.diameter
         let s = viewModel.clockSize.scale
         let quotaIndicators = viewModel.dialQuotaIndicators
+        let quotaLayout = ClockQuotaLayout(diameter: d, count: quotaIndicators.count, scale: s)
 
         ZStack {
             // 表盘
@@ -37,6 +38,7 @@ struct ClockContentView: View {
                 minutes: viewModel.minutes,
                 seconds: viewModel.seconds,
                 theme: viewModel.selectedTheme,
+                role: .face,
                 numberColorOverride: viewModel.effectiveDialNumberColor,
                 scale: s
             )
@@ -100,17 +102,24 @@ struct ClockContentView: View {
             HStack {
                 Spacer()
                 if quotaIndicators.count == 1, let indicator = quotaIndicators.first {
-                    quotaRing(indicator, size: 42 * s, lineWidth: 3 * s, fontSize: 11 * s)
-                        .padding(.trailing, 36 * s)
+                    quotaRing(indicator, size: quotaLayout.ringSize, lineWidth: 3 * s, fontSize: 11 * s)
+                        .padding(.trailing, quotaLayout.trailing)
                 } else if quotaIndicators.count == 2 {
-                    VStack(alignment: .trailing, spacing: 8 * s) {
+                    VStack(alignment: .trailing, spacing: quotaLayout.spacing) {
                         ForEach(quotaIndicators) { indicator in
-                            quotaRing(indicator, size: 36 * s, lineWidth: 2.5 * s, fontSize: 9.5 * s)
+                            quotaRing(indicator, size: quotaLayout.ringSize, lineWidth: 2.5 * s, fontSize: 9.5 * s)
                         }
                     }
-                    .padding(.trailing, 28 * s)
+                    .padding(.trailing, quotaLayout.trailing)
                 }
             }
+
+            ClockFaceView(
+                hours: viewModel.hours, minutes: viewModel.minutes, seconds: viewModel.seconds,
+                theme: viewModel.selectedTheme, role: .hands, scale: s
+            )
+            .frame(width: d, height: d)
+            .allowsHitTesting(false)
 
             // SwiftUI 的 tap 手势会吞掉「窗口背景拖拽」的鼠标序列（normal 版曾因此拖不动表盘）。
             // 点击/拖动改由 AppKit 层分发：>3pt 位移 = 拖动窗口，否则 = 点击展开详情。
@@ -122,7 +131,7 @@ struct ClockContentView: View {
                     onClockDragStart()
                 },
                 onTooltipHover: { hoveredQuotaLabel = $0 },
-                onQuotaClick: { viewModel.advanceDialQuotaPage() },
+                onQuotaClick: viewModel.hasMultipleDialQuotaPages ? { viewModel.advanceDialQuotaPage() } : nil,
                 onQuotaRightClick: onOpenQuota
             )
             .frame(width: d, height: d)
@@ -177,93 +186,15 @@ struct ClockContentView: View {
         .accessibilityLabel(Text(accessibilitySummary))
         .accessibilityHint(Text(L10n.shared.tr("a11y.clockHint")))
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction { viewModel.isExpanded.toggle() }
     }
 
-    private func quotaRing(
-        _ indicator: DialQuotaIndicator,
-        size: CGFloat,
-        lineWidth: CGFloat,
-        fontSize: CGFloat
-    ) -> some View {
-        let outer = min(100, max(0, indicator.outerRemainingPercent))
-        let inner = indicator.innerRemainingPercent.map { min(100, max(0, $0)) }
-        let scale = size / 30
-        let innerInset = 5.25 * scale
-        let innerLineWidth = 1.7 * scale
-        let accent = viewModel.selectedTheme.dialQuotaColor(
-            for: indicator.provider,
-            contrastColor: viewModel.effectiveDialPrimary
+    private func quotaRing(_ indicator: DialQuotaIndicator, size: CGFloat, lineWidth: CGFloat, fontSize: CGFloat) -> some View {
+        NormalQuotaRingView(
+            indicator: indicator, theme: viewModel.selectedTheme,
+            primary: viewModel.effectiveDialPrimary, secondary: viewModel.effectiveDialSecondary,
+            size: size, lineWidth: lineWidth, fontSize: fontSize
         )
-        return ZStack {
-            Circle()
-                .fill(quotaRingSurfaceColor)
-                .shadow(
-                    color: Color.black.opacity(viewModel.selectedTheme == .glass ? 0.02 : 0.14),
-                    radius: 1.6 * scale,
-                    y: 0.8 * scale
-                )
-            Circle()
-                .strokeBorder(
-                    viewModel.selectedTheme == .glass
-                        ? viewModel.effectiveDialPrimary.opacity(0.12)
-                        : viewModel.effectiveDialSecondary.opacity(0.16),
-                    lineWidth: lineWidth
-                )
-            Circle()
-                .trim(from: 0, to: outer / 100)
-                .stroke(
-                    accent.opacity(0.82),
-                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .padding(lineWidth / 2)
-            if let inner {
-                Circle()
-                    .inset(by: innerInset)
-                    .stroke(viewModel.effectiveDialSecondary.opacity(0.10), lineWidth: innerLineWidth)
-                Circle()
-                    .inset(by: innerInset)
-                    .trim(from: 0, to: inner / 100)
-                    .stroke(
-                        indicator.thirdRemainingPercent == nil ? accent.opacity(0.52) : Color.cyan.opacity(0.8),
-                        style: StrokeStyle(lineWidth: innerLineWidth, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-            }
-            if let third = indicator.thirdRemainingPercent {
-                Circle().inset(by: 9 * scale).stroke(Color.orange.opacity(0.14), lineWidth: 1.2 * scale)
-                Circle().inset(by: 9 * scale).trim(from: 0, to: third / 100)
-                    .stroke(Color.orange.opacity(0.8), style: StrokeStyle(lineWidth: 1.2 * scale, lineCap: .round)).rotationEffect(.degrees(-90))
-            }
-            HStack(spacing: 0) {
-                Text(QuotaCenterLabel(remaining: outer).text)
-                    .font(.system(size: fontSize, weight: .bold, design: .rounded))
-                if QuotaCenterLabel(remaining: outer).showsPercent {
-                    Text("%")
-                        .font(.system(size: fontSize, weight: .regular, design: .rounded))
-                }
-            }
-            .foregroundColor(quotaPercentColor(outer))
-            .lineLimit(1)
-            .minimumScaleFactor(0.75)
-        }
-        .frame(width: size, height: size)
-    }
-
-    private var quotaRingSurfaceColor: Color {
-        switch viewModel.selectedTheme {
-        case .glass: return viewModel.effectiveDialPrimary.opacity(0.025)
-        case .midnight, .luxe: return Color.black.opacity(0.12)
-        case .sky: return Color.white.opacity(0.16)
-        case .custom: return viewModel.effectiveDialPrimary.opacity(0.035)
-        default: return Color.white.opacity(0.32)
-        }
-    }
-
-    private func quotaPercentColor(_ remaining: Double) -> Color {
-        if remaining <= 15 { return .red }
-        if remaining <= 35 { return .orange }
-        return viewModel.effectiveDialPrimary
     }
 
     private func quotaTooltipRegions(
@@ -272,26 +203,17 @@ struct ClockContentView: View {
         scale s: CGFloat
     ) -> [ClockTooltipRegion] {
         guard indicators.count == 1 || indicators.count == 2 else { return [] }
-        let ringSize = (indicators.count == 1 ? 35 : 29) * s
-        let trailing = (indicators.count == 1 ? 36 : 28) * s
-        let spacing = 5 * s
-        let totalHeight = ringSize * CGFloat(indicators.count)
-            + spacing * CGFloat(max(0, indicators.count - 1))
-        let top = (diameter - totalHeight) / 2
-        let x = diameter - trailing - ringSize
+        let layout = ClockQuotaLayout(diameter: diameter, count: indicators.count, scale: s)
         return indicators.enumerated().map { index, indicator in
-            let swiftUITop = top + CGFloat(index) * (ringSize + spacing)
-            let appKitY = diameter - swiftUITop - ringSize
-            return ClockTooltipRegion(
-                rect: NSRect(x: x, y: appKitY, width: ringSize, height: ringSize)
-                    .insetBy(dx: -3 * s, dy: -3 * s),
+            ClockTooltipRegion(rect: layout.appKitHitFrame(at: index),
                 text: quotaTooltipText(for: indicator)
             )
         }
     }
 
     private func quotaTooltipText(for indicator: DialQuotaIndicator) -> String {
-        var lines = ["\(indicator.provider.emoji) \(indicator.provider.displayName)"]
+        let emoji = indicator.subscriptionName == nil ? indicator.provider.emoji : "𝕏"
+        var lines = ["\(emoji) \(indicator.displayName)"]
         if let name = indicator.accountName { lines.append(name) }
         for detail in indicator.details {
             lines.append(
@@ -307,18 +229,12 @@ struct ClockContentView: View {
         diameter: CGFloat,
         scale s: CGFloat
     ) -> CGPoint {
-        let count = indicators.count
-        let ringSize = (count == 1 ? 35 : 29) * s
-        let trailing = (count == 1 ? 36 : 28) * s
-        let spacing = 5 * s
-        let totalHeight = ringSize * CGFloat(count) + spacing * CGFloat(max(0, count - 1))
-        let top = (diameter - totalHeight) / 2
+        let layout = ClockQuotaLayout(diameter: diameter, count: indicators.count, scale: s)
         guard let index = indicators.firstIndex(where: { quotaTooltipText(for: $0) == label }) else {
             return CGPoint(x: diameter / 2, y: diameter / 2)
         }
-        let centerY = top + CGFloat(index) * (ringSize + spacing) + ringSize / 2
-        let ringLeft = diameter - trailing - ringSize
-        return CGPoint(x: max(43 * s, ringLeft - 47 * s), y: centerY)
+        let frame = layout.frame(at: index)
+        return CGPoint(x: max(43 * s, frame.minX - 47 * s), y: frame.midY)
     }
 
     /// VoiceOver 朗读摘要：时间 + 今日 token + 消息数（已随语言本地化）。
@@ -332,7 +248,7 @@ struct ClockContentView: View {
         let quotas = viewModel.dialQuotaIndicators.map {
             L10n.shared.tr(
                 "quota.dialAccessibility",
-                $0.provider.displayName,
+                $0.displayName,
                 Int($0.outerRemainingPercent.rounded())
             )
         }

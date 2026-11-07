@@ -72,7 +72,7 @@ struct NotebookWindowView: View {
         VStack(alignment: .leading, spacing: 10) {
             TextField(toolboxText("标题", "Title"), text: Binding(get: { selected?.title ?? "" }, set: { store.update(entry.id, title: $0) }))
                 .textFieldStyle(.roundedBorder).font(.system(size: 13, weight: .semibold))
-            TextEditor(text: Binding(get: { selected?.body ?? "" }, set: { store.update(entry.id, body: $0) }))
+            noteBody(entry)
                 .font(.system(size: 12)).frame(minHeight: 150)
                 .padding(5).background(.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 8))
             Divider()
@@ -96,5 +96,11 @@ struct NotebookWindowView: View {
             }
         }.toolboxCard()
     }
+    @ViewBuilder private func noteBody(_ entry: NotebookEntry) -> some View {
+        let editor = TextEditor(text: Binding(get: { selected?.body ?? "" }, set: { store.update(entry.id, body: $0) }))
+        if #available(macOS 13.0, *) { editor.scrollContentBackground(.hidden) }
+        else { editor }
+    }
+
 }
 #endif

@@ -103,6 +103,7 @@ struct SubscriptionQuotaWindowView: View {
                                 HStack(spacing: 5) {
                                     Circle()
                                         .fill(provider.dialQuotaColor.opacity(0.72))
+                                        .overlay(Circle().strokeBorder(.primary.opacity(0.18), lineWidth: 0.5))
                                         .frame(width: 7, height: 7)
                                     Text(viewModel.quotaDisplayName(for: provider))
                                         .lineLimit(1)
@@ -174,6 +175,7 @@ struct SubscriptionQuotaWindowView: View {
                idealWidth: isTwoColumn ? 760 : 430,
                minHeight: 480, idealHeight: 650)
         .background(Color(nsColor: .windowBackgroundColor))
+        .preferredColorScheme(viewModel.selectedTheme.dropdownColorScheme)
         .environment(\.locale, Locale(identifier:L10n.shared.language.rawValue))
         .onAppear { onLayoutChange(isTwoColumn) }
         .onChange(of: isTwoColumn) { onLayoutChange($0) }

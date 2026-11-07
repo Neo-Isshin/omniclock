@@ -16,7 +16,9 @@ struct ClockFaceView: View {
     let hours: Int
     let minutes: Int
     let seconds: Int
+    enum Role { case face, hands, full }
     var theme: ClockFaceTheme = .classic
+    var role: Role = .full
     var numberColorOverride: Color? = nil
 
     /// 相对中档(240)的缩放比，用于缩放表盘数字字号（其余几何已按 radius 自动缩放）。
@@ -27,22 +29,25 @@ struct ClockFaceView: View {
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
             let radius = min(size.width, size.height) / 2 - 4
 
-            drawDial(context: context, center: center, radius: radius)
+            if role == .face || role == .full {
+                drawDial(context: context, center: center, radius: radius)
 
-            if theme.hasDialDecoration {
-                drawDialDecoration(context: context, center: center, radius: radius)
+                if theme.hasDialDecoration {
+                    drawDialDecoration(context: context, center: center, radius: radius)
+                }
+
+                if theme.hasTickMarks {
+                    drawTickMarks(context: context, center: center, radius: radius)
+                }
+
+                if theme.showNumbers {
+                    drawNumbers(context: context, center: center, radius: radius)
+                }
             }
-
-            if theme.hasTickMarks {
-                drawTickMarks(context: context, center: center, radius: radius)
+            if role == .hands || role == .full {
+                drawHands(context: context, center: center, radius: radius)
+                drawCenterDot(context: context, center: center)
             }
-
-            if theme.showNumbers {
-                drawNumbers(context: context, center: center, radius: radius)
-            }
-
-            drawHands(context: context, center: center, radius: radius)
-            drawCenterDot(context: context, center: center)
         }
     }
 

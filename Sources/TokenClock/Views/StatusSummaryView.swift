@@ -80,6 +80,7 @@ struct StatusSummaryView: View {
             .debounce(for: .milliseconds(250), scheduler: RunLoop.main)) { _ in
             history.reload(day: day, tools: hourlyTools)
         }
+        .preferredColorScheme(viewModel.selectedTheme.dropdownColorScheme)
         .onAppear { viewModel.refreshStatusSummaryQuotasIfNeeded() }
         .onDisappear { history.cancel() }
     }
@@ -455,11 +456,12 @@ struct StatusSummaryContent: View {
     }
 
     private func summaryRing(_ indicator: DialQuotaIndicator, size: CGFloat) -> some View {
-        let color = indicator.provider == .zhipu ? Color.primary : ClockFaceTheme(rawValue: UserDefaults.standard.string(for: .selectedTheme) ?? "classic")?.dialQuotaColor(for: indicator.provider, contrastColor: .primary) ?? .accentColor
+        let color = indicator.provider.dialQuotaColor
         let centerLabel = QuotaCenterLabel(remaining: indicator.outerRemainingPercent)
+        let theme = ClockFaceTheme(rawValue: UserDefaults.standard.string(for: .selectedTheme) ?? "classic") ?? .classic
         let middle = indicator.thirdRemainingPercent == nil ? color.opacity(0.4)
-            : Color.cyan.opacity(0.8)
-        let innermost = Color.orange.opacity(0.8)
+            : NormalQuotaRingPalette.concentricColor(layer: 1, contrast: theme.dropdownTextColor).opacity(0.9)
+        let innermost = NormalQuotaRingPalette.concentricColor(layer: 2, contrast: theme.dropdownTextColor).opacity(0.9)
         let scale = size / 48
         return ZStack {
             Circle().stroke(.primary.opacity(0.08), lineWidth: 4 * scale)

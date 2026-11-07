@@ -30,8 +30,7 @@ private struct InstantHint: ViewModifier {
     let text: String
     @State private var hovered = false
     func body(content: Content) -> some View {
-        content.onHover { hovered = $0 }
-            .background(InstantHintAnchor(text: text, isPresented: hovered).allowsHitTesting(false))
+        content.background(InstantHintAnchor(text: text, isPresented: $hovered).allowsHitTesting(false))
             .onDisappear { hovered = false }
     }
 }
@@ -40,14 +39,20 @@ private struct InstantHint: ViewModifier {
 /// and ScrollView clipping. Only one hint can be visible across adjacent rows.
 @MainActor private struct InstantHintAnchor: NSViewRepresentable {
     let text: String
-    let isPresented: Bool
+    @Binding var isPresented: Bool
 
     func makeCoordinator() -> Coordinator { Coordinator() }
-    func makeNSView(context: Context) -> NSView { NSView() }
-    func updateNSView(_ view: NSView, context: Context) {
+    func makeNSView(context: Context) -> PassiveHoverNSView {
+        PassiveHoverNSView { isPresented = $0 }
+    }
+    func updateNSView(_ view: PassiveHoverNSView, context: Context) {
+        view.onHover = { isPresented = $0 }
         context.coordinator.update(anchor: view, text: text, isPresented: isPresented)
     }
-    static func dismantleNSView(_ view: NSView, coordinator: Coordinator) { coordinator.close() }
+    static func dismantleNSView(_ view: PassiveHoverNSView, coordinator: Coordinator) {
+        view.onHover = { _ in }
+        coordinator.close()
+    }
 
     @MainActor final class Coordinator {
         private static weak var active: Coordinator?
@@ -272,10 +277,11 @@ struct QuickToolEditorView: View {
                 .background(Color.accentColor.opacity(dropTarget == item ? 0.08 : 0), in: RoundedRectangle(cornerRadius: 5))
                 .onDrop(of: [UTType.data], isTargeted: Binding(get: { dropTarget == item }, set: { dropTarget = $0 ? item : nil })) { providers in
                     guard providers.count == 1, let provider = providers.first else { return false }
+                    let sourceEditorID = editorID
                     provider.loadDataRepresentation(forTypeIdentifier: UTType.data.identifier) { data, _ in
-                        guard let data, data.count <= 1024, let drag = try? JSONDecoder().decode(QuickToolOrderDrag.self, from: data), drag.editorID == editorID else { return }
+                        guard let data, data.count <= 1024, let drag = try? JSONDecoder().decode(QuickToolOrderDrag.self, from: data), drag.editorID == sourceEditorID else { return }
                         DispatchQueue.main.async {
-                            guard preferences.order.contains(item), preferences.order.contains(drag.tool) else { return }
+                            guard editorID == sourceEditorID, preferences.order.contains(item), preferences.order.contains(drag.tool) else { return }
                             preferences.move(drag.tool, to: item); dropTarget = nil
                         }
                     }
@@ -388,7 +394,7 @@ private struct QuickToolButton: View {
                 .background(color.opacity(hovered ? 0.12 : 0.06), in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(color.opacity(0.12), lineWidth: 0.6))
                 .contentShape(Rectangle())
-        }.buttonStyle(.plain).onHover { hovered = $0 }.instantHint(item.hint)
+        }.buttonStyle(.plain).passiveHover { hovered = $0 }.instantHint(item.hint)
     }
 }
 private struct QuickToolNarrowButton: View {
@@ -401,7 +407,7 @@ private struct QuickToolNarrowButton: View {
             Image(systemName:item.symbol).font(.system(size:15,weight:.medium)).foregroundStyle(color)
                 .frame(width:32,height:46).background(color.opacity(hovered ? 0.12:0.06),in:RoundedRectangle(cornerRadius:10))
                 .overlay(RoundedRectangle(cornerRadius:10).strokeBorder(color.opacity(0.12),lineWidth:0.6))
-        }.buttonStyle(.plain).onHover{hovered=$0}.instantHint(item.title+" · "+item.hint).accessibilityLabel(item.title)
+        }.buttonStyle(.plain).passiveHover{hovered=$0}.instantHint(item.title+" · "+item.hint).accessibilityLabel(item.title)
     }
 }
 #endif

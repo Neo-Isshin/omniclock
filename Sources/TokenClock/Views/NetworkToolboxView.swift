@@ -184,7 +184,14 @@ private struct MainlandReachabilityCard: View {
             }
             Text(toolboxText("填写已开放的服务端口。大陆三网多点与境外对照；出口 IP 可能不接受入站连接。", "Use an open service port. Compare mainland carrier probes with foreign controls; an exit IP may not accept inbound connections."))
                 .font(.system(size: 10)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            VStack(alignment: .leading, spacing: 8) { targetFields; controls }
+            if #available(macOS 13.0, *) {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { targetFields; controls }
+                    VStack(alignment: .leading, spacing: 8) { targetFields; controls }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 8) { targetFields; controls }
+            }
             if !model.inputError.isEmpty {
                 Text(model.inputError).font(.system(size: 10)).foregroundStyle(.orange)
             }
