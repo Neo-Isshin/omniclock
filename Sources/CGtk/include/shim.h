@@ -384,7 +384,7 @@ static inline void tc_gtk_show_about(
     );
     gtk_about_dialog_set_website(
         GTK_ABOUT_DIALOG(dialog),
-        "https://github.com/Neo-Isshin/TokenClock/issues"
+        "https://github.com/Neo-Isshin/omniclock/issues"
     );
     gtk_about_dialog_set_website_label(GTK_ABOUT_DIALOG(dialog), "GitHub Issues");
     GtkWidget *homepage = gtk_link_button_new_with_label("https://www.ailyre.com", "www.ailyre.com");

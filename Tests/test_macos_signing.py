@@ -147,7 +147,7 @@ if '-R' in args and not args[args.index('-R')+1].startswith('='):sys.exit(3)
         self.assertNotIn("set-key-partition-list", source)
         installer = (ROOT / "cli/install.sh").read_text()
         self.assertIn("macos_prepare_signature", installer)
-        wrapper = (ROOT / "cli/tokenclock").read_text()
+        wrapper = (ROOT / "cli/omniclock").read_text()
         self.assertIn("protected_signature", wrapper)
         self.assertIn("cannot preserve this signing identity", wrapper)
 
