@@ -22,7 +22,7 @@ class ReleasePublisherTests(unittest.TestCase):
         self.repo = self.root / "repo"
         self.assets.mkdir()
         (self.repo / "cli").mkdir(parents=True)
-        for name in ("install.sh", "install.ps1", "tokenclock"):
+        for name in ("install.sh", "install.ps1", "omniclock", "tokenclock"):
             (self.repo / "cli" / name).write_text(f"fixture {name}\n")
         for args in (["init", "-q"], ["add", "cli"],
                      ["-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
@@ -50,6 +50,8 @@ class ReleasePublisherTests(unittest.TestCase):
             self.assertEqual(asset["digest"], "sha256:" + publisher.digest(target))
             self.assertTrue(asset["browser_download_url"].startswith(publisher.BASE_URL + "/"))
         self.assertEqual((self.site / "install.sh").read_text(), "fixture install.sh\n")
+        self.assertEqual((self.site / "omniclock").read_text(), "fixture omniclock\n")
+        self.assertEqual((self.site / "tokenclock").read_bytes(), (self.site / "omniclock").read_bytes())
         with tarfile.open(self.site / "sources/glass.tar.gz") as archive:
             self.assertNotIn("TokenClock/private-untracked.txt", archive.getnames())
             self.assertEqual(archive.extractfile("TokenClock/cli/install.sh").read(), b"fixture install.sh\n")

@@ -2,253 +2,193 @@
 
 **简体中文** · [English](README.md)
 
-# 🕰️ TokenClock
+# 🕰️ OmniClock
 
-**一眼看清所有 AI 编程工具消耗的极简桌面时钟。**
+**把 AI 用量、订阅额度、资讯、提醒和实用工具，放到桌面上。**
 
-[![Latest Release](https://img.shields.io/badge/Release-downloads-10B981?style=for-the-badge)](https://www.ailyre.com/tokenclock/releases/)
-[![macOS 12+](https://img.shields.io/badge/macOS-12%2B-000000?style=for-the-badge&logo=apple&logoColor=white)](#macos-与-linux)
-[![macOS 26+ Liquid Glass](https://img.shields.io/badge/macOS%2026%2B-Liquid%20Glass-00B0F0?style=for-the-badge&logo=apple&logoColor=white)](#macos-与-linux)
-[![Windows 11 Native](https://img.shields.io/badge/Windows%2011-Fluent%20Win32-0078D4?style=for-the-badge&logo=windows&logoColor=white)](#windows)
-[![Linux GTK3](https://img.shields.io/badge/Linux-GTK3%20AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black)](#macos-与-linux)
+[![下载](https://img.shields.io/badge/Downloads-Ailyre-10B981?style=for-the-badge)](https://www.ailyre.com/omniclock/releases/)
+[![macOS 12+](https://img.shields.io/badge/macOS-12%2B-000000?style=for-the-badge&logo=apple&logoColor=white)](#支持平台)
+[![Liquid Glass](https://img.shields.io/badge/macOS%2026%2B-Liquid%20Glass-00B0F0?style=for-the-badge&logo=apple&logoColor=white)](#支持平台)
+[![Windows](https://img.shields.io/badge/Windows-11-0078D4?style=for-the-badge)](#windows)
+[![Linux](https://img.shields.io/badge/Linux-GTK3%20AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black)](#支持平台)
 
-[![Swift 6](https://img.shields.io/static/v1?label=Swift&message=6&color=F05138&logo=swift&logoColor=white)](https://www.swift.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-3B82F6.svg)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/Neo-Isshin/TokenClock?style=social)](https://github.com/Neo-Isshin/TokenClock)
+[![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](https://www.swift.org/)
+[![MIT 许可](https://img.shields.io/badge/License-MIT-3B82F6.svg)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/Neo-Isshin/omniclock?style=social)](https://github.com/Neo-Isshin/omniclock)
 
 </div>
 
 <div align="center">
-
 <table>
   <tr>
-    <td align="center" valign="bottom"><img src="docs/screenshots/glass.png" alt="TokenClock Liquid Glass" width="220"><br><sub><b>Liquid Glass</b><br>macOS 26+ / 27 原生流体玻璃</sub></td>
-    <td align="center" valign="bottom"><img src="docs/screenshots/dropdown.png" alt="用量详情下拉面板" width="230"><br><sub><b>实时详情面板</b><br>会话/模型下钻与实时用量</sub></td>
-    <td align="center" valign="bottom"><img src="docs/screenshots/normal_zh.png" alt="TokenClock normal" width="220"><br><sub><b>Normal 版</b><br>macOS / Windows 11 / Linux 原生控件</sub></td>
+    <td align="center" valign="bottom"><img src="docs/screenshots/glass_zh.png" alt="Liquid Glass 表盘" width="220"><br><sub><b>Liquid Glass</b><br>一眼掌握桌面概览</sub></td>
+    <td align="center" valign="bottom"><img src="docs/screenshots/dropdown_zh.png" alt="用量详情" width="230"><br><sub><b>用量详情</b><br>工具、会话与模型</sub></td>
+    <td align="center" valign="bottom"><img src="docs/screenshots/normal_zh.png" alt="Normal 版表盘" width="220"><br><sub><b>Normal</b><br>适配主题的原生界面</sub></td>
   </tr>
 </table>
-
 </div>
 
 ---
 
-**TokenClock** 是一个常驻桌面置顶的精致小时钟。它不仅静默走时，更会在方寸之间聚合你今日所有 AI 编程工具的 **Token 消耗、消息频次、正在工作的 Agent 工具、Token 速率与当前天气**。无需频繁切出窗口打开各种复杂的用量控制台，抬头即可了然于心。
+**OmniClock** 原名 **TokenClock**，将日常使用 AI 时关心的信息和工具集中到桌面。表盘展示活动与选定额度，展开后可以查看用量历史、费用、行事本、AI 资讯，以及本地和网络诊断工具。
 
-- **左键点击表盘**：即刻滑出当日各工具会话、模型调用明细与耗费占比。
-- **右键点击表盘**：自由切换 8 款精致表盘、缩放尺寸、调整城市时区、透明度与偏好设置。
+仓库保留原有历史。macOS／Linux 的主命令改为 `omniclock`，原来的 `tokenclock` 命令继续兼容。本次更名沿用现有发行版本：**macOS 和 Linux 为 v1.6.3**，Windows 继续提供已验证的 **v1.5.12**；本次并未发布 v1.0.0 应用版本。
 
----
+## 功能
 
-**v1.6.3 已提供 macOS Glass、macOS Normal 和 Linux。** 同步统计、额度、速递、行事本、工具箱和总结面板能力，保留各平台自身样式。Windows 暂保持 v1.5.12，等待自有主机验证。
+| 区域 | 可以做什么 |
+|---|---|
+| **桌面概览** | 查看今日 Token、消息数、活跃工具、天气与订阅额度环；选择表盘、尺寸及是否始终置顶。 |
+| **用量与 API 等价费用** | 按工具、会话或模型展开，切换缓存读取口径，查看估算费用及支持来源的 Fast／Priority 拆分。近期生成速度每 3 分钟刷新。 |
+| **订阅额度** | 查看支持的账号、剩余额度与重置时间。最多选择 4 个工具，每次显示 2 个。对已获取或手动填写的续费日期，可设置提前 1、2、3、7 天提醒。 |
+| **历史与分享** | 查看近 30 天或自选日期范围；起止日期为同一天时显示每小时用量。按单日、近几天、月份或自然周导出分享图片，可选是否包含缓存读取及图片背景。 |
+| **AI 速递与行事本** | 阅读带厂商 logo 和分类标签的 Ailyre 资讯，记录简单文字并设置提醒。资讯每 2 小时刷新，应用版本每 12 小时检查一次。 |
+| **网络工具箱** | 点击后检测 DNS／DoH、WebRTC、IPv6、出口 IP 与地区、AI 域名分流，以及大陆可达性参考；区分可能有风险与尚不能确认的结果。 |
+| **本地工具箱与模型检测** | 检查环境冲突和磁盘占用，本地扫描日志泄密，检查时钟偏差，并以脱敏结果验证配置中的 API Key。模型检测分析已有会话证据，也支持用户明确启动的外部检查。 |
 
-## ✨ 核心特性
+macOS 的总结面板集中展示小时用量、较昨日同期、缓存利用率、额度重置时间、行事本和工具／模型列表。快捷按钮可以调整显示与顺序。Linux 通过原生菜单和面板提供对应功能，部分检查会打开浏览器。
 
-- 🤖 **统一纳管 15+ 种主流 AI 编程工具**  
-  原生支持 OpenClaw、Claude Code、Gemini CLI、Codex、Hermes、OpenCode、Qwen Code、Copilot CLI、Grok CLI、Aider、Antigravity、Cline、Continue、Cursor Agent、ZCode。自动侦测本地数据源，免去复杂配置。
-- 🔔 **订阅额度看板与续费提醒 (v1.5.11 新增)**  
-  集中查看 Codex、Cursor、Claude Code、Antigravity、Grok Bot 与智谱 GLM 的额度余量与重置时间。针对 Codex/ChatGPT 与 Cursor 支持**自动识别账单周期**，并在续费前 1 / 2 / 3 / 7 天弹出通知提醒，告别意外扣费。
-- 📈 **30 天历史全景与热力图 (Usage Overview)**  
-  提供如同 GitHub 贡献日历般的历史用量热力图，回溯任意日期的消耗分布、各工具调用频次与等价成本轨迹。
-- 📊 **真实有效的 Token 计算模型**  
-  科学区分输入、输出、推理与缓存创建 Token。针对重复读取的提示词缓存（Prompt Cache Hit）自动剔除，避免虚标膨胀，反映最真实的开发消耗。
-- 💳 **公开 API 等价费用折算**  
-  根据独立更新的 Ailyre 模型价格目录，将当日 Token 消耗换算为等价美元参考价值（非订阅账单金额）；支持在设置中为第三方中转/自定义代理模型自定义单价。
-- 🎴 **精美用量分享卡片 (Usage Share Card)**  
-  一键生成极具设计感的高清用量与成就分享卡，方便在社交网络或团队频道中展示你的每日 AI 生产力。
-- 🎨 **8 款设计表盘与极光光晕**  
-  提供 Glass、Classic、Glacier、Midnight、Luxe、Antique、Railgun、Sky 风格，配合平滑的 Aurora 动态极光渐变，兼顾实用与视觉愉悦。
-- ⚡ **全平台深度原生实现**  
-  - **macOS**：SwiftUI + AppKit，支持 macOS 26+ 原生 Liquid Glass 特效与菜单栏一键隐藏。
-  - **Windows**：纯 Win32 + Fluent 原生渲染，极低内存开销，支持系统托盘常驻，单用户免管理员权限安装。
-  - **Linux**：GTK3 + Cairo 预编译 AppImage，内置免 FUSE2 解包容灾，开箱即用。
-- 🔌 **本地 Loopback API**  
-  提供 `127.0.0.1:9988` 只读 REST 接口，轻松接入 Raycast、GeekTool、Sketchybar 或自动化脚本。
-- 🔒 **本地用量统计与主动连接**  
-  Token 统计只读解析本机现有日志。额度查询复用获准读取的登录凭据；系统授权只在用户主动点击后请求。AI速递、天气和按需网络检测会访问各自服务；Model Detect 的外部请求需确认范围和费用，云端聊天 Token 不作估算。
+## 支持平台
 
----
-
-## 💻 跨平台支持
-
-| 平台 | 版本形态 | 运行要求与特性 |
+| 平台 | 版本 | 当前分发情况 |
 |---|---|---|
-| **macOS 26+** | Liquid Glass + Normal | Apple Silicon / Intel 通用架构，支持 macOS 27 Beta 5，原生毛玻璃与流体光泽 |
-| **macOS 12–25** | Normal | 经典独立桌面悬浮小组件 |
-| **Windows 11 / 10** | Normal (Win32 Fluent) | x86_64 架构，免管理员提权，当前用户独立安装，集成系统托盘 |
-| **Linux** | Normal (GTK3 AppImage) | x86_64 架构，要求 glibc 2.35+，无 FUSE 环境自动兼容解包运行 |
+| macOS 26+ | Glass 或 Normal | v1.6.3，Apple 芯片／Intel 通用包 |
+| macOS 12–25 | Normal | v1.6.3 通用包，不透明主题表盘 |
+| Linux x86_64 | Normal，GTK3／Cairo | v1.6.3 AppImage，要求 glibc 2.35+；缺少 FUSE 时可解包运行 |
+| Windows 11 x86_64 | Normal，Win32 | 继续提供已验证的 v1.5.12；新版功能与安装包待自有 Windows 测试机验证 |
 
----
+Glass 保留透明材质与专属光学效果，Normal 使用自己的主题和对比度规则。Normal 的 **Text Color／字体颜色** 快捷按钮只影响详情面板，表盘文字有独立的外观设置。
 
-## ⚡ 极速安装
+Windows **尚未包含当前 macOS／Linux 的全部新功能**，恢复实机验证前不发布新的 Windows 安装包。项目测试在本机或自有测试机进行，不使用 GitHub Actions。
+
+## 安装
 
 ### macOS 与 Linux
 
-打开终端（Terminal），直接运行官方一键脚本：
-
 ```bash
-curl -fsSL https://www.ailyre.com/tokenclock/install.sh | bash
+curl -fsSL https://www.ailyre.com/omniclock/install.sh | bash
 ```
 
-安装器会自动识别当前系统架构、校验 Release 构件哈希、启动 TokenClock，并注册 `tokenclock` CLI 管理命令。
-
-常用管理指令：
+安装器会选择支持的版本、校验安装包，并同时安装两个命令：
 
 ```bash
-tokenclock doctor     # 检查运行状态与数据源健康度
-tokenclock restart    # 重启桌面时钟进程
-tokenclock update     # 检查并更新到最新发布版
-tokenclock uninstall  # 卸载程序（可保留个人设置）
+omniclock doctor
+omniclock start --normal
+omniclock restart
+omniclock update
+omniclock update --check
 ```
+
+`update --check` 只下载当前安装脚本，不执行安装或重启。需要指定 macOS 版本时可添加 `--glass` 或 `--normal`。`omniclock uninstall` 移除已安装的 runtime，保留 CLI 命令供以后重装。
+
+#### 已安装 TokenClock 的用户
+
+原来的命令仍然有效：
+
+```bash
+tokenclock update
+# CLI 更新后，两个名字均可使用：
+omniclock doctor
+tokenclock doctor
+```
+
+新安装器将 `omniclock` 作为主实现，`tokenclock` 作为参数转发入口。两者使用同一份安装与设置。现有 `TOKENCLOCK_*` 环境变量、`~/.tokenclock`、应用标识及可执行文件名称继续兼容，无需维护两份用量历史。
+
+原来的 `https://www.ailyre.com/tokenclock/install.sh` 地址继续可用。如果从仓库手动安装 CLI，请将两个脚本一起放到 `PATH` 中的同一目录。
+
+macOS 可能要求授权访问受保护目录或外接磁盘。当前临时签名安装包不保证二进制更新后能够沿用全部授权。
 
 ### Windows
 
-在 PowerShell 中执行以下安装命令（无需管理员权限）：
-
 ```powershell
-& ([scriptblock]::Create((irm https://www.ailyre.com/tokenclock/install.ps1)))
+& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1)))
 ```
 
-程序将安全部署至 `%LOCALAPPDATA%\Programs\TokenClock` 并自动校验 SHA256。
+为当前用户安装现有已验证的 Windows 包，并校验 SHA-256。为兼容既有安装，目录与可执行文件仍保留 TokenClock 名称。上面的 `omniclock`／`tokenclock` Shell 管理命令适用于 macOS 和 Linux。
 
 <details>
-<summary><strong>🛠️ Windows 高阶安装参数</strong></summary>
+<summary>Windows 安装器选项</summary>
 
 ```powershell
-# 安装时不立即启动，并在开始菜单创建快捷方式
-& ([scriptblock]::Create((irm https://www.ailyre.com/tokenclock/install.ps1))) -NoStart -StartMenuShortcut
+# 安装后不立即启动，可选创建开始菜单快捷方式。
+& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1))) -NoStart -StartMenuShortcut
 
-# 检查当前安装与文件完整性
-& ([scriptblock]::Create((irm https://www.ailyre.com/tokenclock/install.ps1))) -Action Check
+# 查看安装状态。
+& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1))) -Action Check
 
-# 卸载 TokenClock，但保留你的偏好设置
-& ([scriptblock]::Create((irm https://www.ailyre.com/tokenclock/install.ps1))) -Action Uninstall
+# 卸载并保留 Windows 用户设置。
+& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1))) -Action Uninstall
 ```
 
 </details>
 
----
+## 日常操作
 
-## 📸 界面预览
+- **点击表盘**打开用量详情，展开工具、会话或模型查看各项消耗。
+- **第一行快捷按钮**提供工具箱、历史等入口，可在编辑器中调整显示与顺序。
+- **切换 AI 速递**后，在下拉面板下半部分阅读资讯；通过返回按钮回到用量视图。
+- **打开订阅额度**选择表盘显示的工具及账号。有多组时，左键点击额度环切换下一组；右键打开额度面板。
+- **macOS 菜单栏图标单击**打开今日总结，双击临时将表盘置前或隐藏；右键菜单也提供显示／隐藏入口。
+- **右键点击表盘**进入常规、外观、数据路径和通知设置，或检查更新、重启。
+
+详情面板支持左右拉伸，通知面板支持两个方向的拉伸。部分非激活 macOS 面板在可拉伸边缘仍可能显示普通箭头，底部拉伸把手继续可用。
+
+## 支持的数据源
+
+当前 macOS／Linux 覆盖 Codex、Claude Code、Cursor Agent、Grok Bot、Antigravity、OpenClaw、Gemini CLI、Hermes、OpenCode、Qwen Code、Copilot CLI、Grok CLI、Aider、Cline、Continue、ZCode、Kilo Code、Pi、OMP、PiG、DSH、Command Code 和 Freebuff，具体可统计内容取决于工具实际保存的记录。
+
+- 非默认目录和外接磁盘可在 **设置 → 数据源路径**中指定。
+- Freebuff 提供的是本地已完成回复数，不是 Token 记录；这些计数不参与 Token 和 API 等价费用汇总。
+- 对只有云端聊天、没有真实 Token 记录的活动，不编造用量估算。
+- 只有来源提供合适的时间证据时才展示 t/s 和 TTFT，缺失数据保持不可用。
+- 额度卡片复用已有额度记录或允许读取的登录状态；部分账号需要用户主动连接或授权。只有确认共享订阅时才进行去重。
+
+更多细节见[新增 harness](docs/ADDITIONAL_HARNESSES.md)、[小时历史](docs/HOURLY_HISTORY.md)和[订阅周期](docs/SUBSCRIPTION_BILLING.md)。
+
+## 统计口径与隐私
+
+主 Token 数默认不包含缓存读取，可以手动切换。缓存写入、输出和推理遵循数据源实际记录的口径。API 等价费用来自 [Ailyre 价格目录](https://www.ailyre.com/prices/tokenclock.json)，支持用户覆盖价格；它是公开 API 牌价下的估算，**不是订阅实际账单**。
+
+用量采集只读本地日志和数据库，不修改 harness 的记录。额度、天气、资讯和用户启动的网络检查会访问对应服务。本地日志泄密扫描不上传日志；API Key 验活只向配对的配置端点发送凭据，结果脱敏展示。外部模型检测需要确认范围与费用，结果属于证据，不能作为模型身份的证明。
+
+一次网络探测成功不代表所有应用或路由均无泄漏。大陆可达性结果仅供参考，不会把普通超时直接判定为 GFW 封锁。
+
+## 本地 API
+
+启用后，只读 HTTP API 绑定回环地址：
+
+```bash
+curl http://127.0.0.1:9988/api/usage
+curl 'http://127.0.0.1:9988/api/history?days=30'
+```
+
+端口可以配置。API 等价费用带有 `costBasis: "api_equivalent_public_list"` 标记。
+
+## 界面截图
 
 <div align="center">
-
-<h3>📊 历史用量与全景热力图 (Usage Overview)</h3>
-<p><img src="docs/screenshots/usage_overview.png" alt="30 天历史用量与全景热力图" width="780"></p>
-
-<br>
-
+<p><img src="docs/screenshots/usage_overview.png" alt="用量历史" width="780"></p>
 <table>
   <tr>
-    <td align="center" width="56%"><img src="docs/screenshots/subscription_quota.png" alt="订阅额度与续费提醒" width="460"><br><sub><b>🔔 订阅额度看板与续费提醒 (Subscription Quota)</b><br>Codex、Cursor、Grok Bot、Z.ai、Claude 等集中查看与倒计时</sub></td>
-    <td align="center" width="44%"><img src="docs/screenshots/themes.png" alt="8 套精选表盘与极光主题" width="280"><br><sub><b>🎨 8 套精选表盘选择器 (Theme Selector)</b><br>Classic、Glacier、Midnight、Luxe、Antique、Sky 等</sub></td>
+    <td align="center"><img src="docs/screenshots/subscription_quota.png" alt="订阅额度面板" width="460"></td>
+    <td align="center"><img src="docs/screenshots/themes_zh.png" alt="表盘主题选择" width="280"></td>
   </tr>
 </table>
-
 </div>
 
----
-
-## 🕹️ 日常交互指南
-
-- **查看消耗详情**：单击表盘左键展开下拉面板，查看每个工具各 Session、各模型的详细 Token 与折算成本。
-- **切换分析视角**：在下拉面板中切换 **By Session**（按会话）或 **By Model**（按模型），点击 **By Percent** 快速查看占比柱状图。
-- **额度与订阅中心**：在面板中点击 **Subscription Quota**，即可查看 Codex、Claude Code、Cursor 等账号的订阅重置倒计时；点击铅笔图标可设置到期提醒天数（1/2/3/7 天）。
-- **打开历史全景**：点击 **History Usage** 唤出 Usage Overview 窗口，查看 30 天日历热力图与跨工具累计报表。
-- **个性化定制**：右键点击表盘，进入 **Settings**：
-  - 手动开关数据源或纠正特殊安装路径（Data Source Paths）；
-  - 调整刷新率与用量过快预警阈值；
-  - 为自定义中转 API 配置模型单价；
-  - 自定义配色与专属表盘。
-- **随心摆放与隐藏**：
-  - 随意拖拽表盘至桌面任意角落，位置自动记忆；
-  - **macOS**：点击顶部菜单栏的小仪表图标可一键隐现；
-  - **Windows**：右键选择 **Hide TokenClock** 收起至托盘，单击托盘图标即可唤醒。
-
----
-
-## 🧩 支持的 AI 工具生态
-
-TokenClock 支持自动探测并解析以下 15+ 种工具的本地活动数据：
-
-| 官方 / 主流 CLI | 独立编辑器与 Agent | IDE 扩展与开源核心 |
-|---|---|---|
-| **Claude Code** | **Cursor Agent** | **Continue** |
-| **OpenClaw** | **Antigravity** | **Cline** |
-| **Codex** | **ZCode** | **Aider** |
-| **Gemini CLI** | **Qwen Code** | **OpenCode** |
-| **GitHub Copilot CLI** | **Grok CLI** | **Hermes** |
-
-> 注：若工具安装在自定义目录或容器挂载路径，只需在 **Settings → Data Source Paths** 中手动指定该目录即可。Windows 版本另提供针对 Kiro 会话格式与 CodeBuddy 状态的适配支持。
-
----
-
-## 🔌 本地 REST API (开发集成)
-
-TokenClock 内置极轻量的本地只读 HTTP 接口（仅监听回环地址 `127.0.0.1`，拒绝任何外部网络连接）：
+## 开发与帮助
 
 ```bash
-# 获取今日实时用量、消息数与各模型消耗
-curl http://127.0.0.1:9988/api/usage
-
-# 获取最近 30 天的历史用量轨迹
-curl http://127.0.0.1:9988/api/history?days=30
+git clone https://github.com/Neo-Isshin/omniclock.git
+cd omniclock
 ```
 
-响应字段中包含标准 `"costBasis": "api_equivalent_public_list"` 标识，便于与监控看板、Raycast 脚本或 GeekTool 等桌面美化工具对接。
+`main` 为 macOS Glass，`normal` 为 macOS Normal，`codex/linux-theme-parity` 为当前 Linux 版本。内部 Swift target 和 bundle 名称保留 `TokenClock` 以维持兼容。修改共享组件前，请阅读[平台行为约定](PLATFORM_PARITY.md)和[模型检测集成](docs/MODEL_DETECT_INTEGRATION.md)。
 
----
+安装异常时先运行 `omniclock doctor`。用量缺失时检查所选目录中是否有真实用量记录；额度异常时区分本机记录缺失、读取权限、登录过期和服务端拒绝。
 
-## ❓ 常见问题排查 (FAQ)
+[反馈问题](https://github.com/Neo-Isshin/omniclock/issues) · [Gitea 镜像](https://gitea.nxc8335.cloud/nxc8335/omniclock) · [Ailyre](https://www.ailyre.com/)
 
-<details>
-<summary><strong>Q: 某个工具明明在使用，但 Token 统计显示为 0？</strong></summary>
+## 许可与致谢
 
-1. 在右键菜单打开 **Settings**，点击 **Re-detect**（重新检测）。
-2. 检查该工具是否已经生成了本地日志（工具必须至少产生过一次实际会话并有数据写入磁盘）。
-3. 检查 **Data Source Paths** 中的路径是否正确映射到了该工具的存储目录。
-</details>
-
-<details>
-<summary><strong>Q: 订阅额度 (Subscription Quota) 提示不可用？</strong></summary>
-
-额度面板优先复用各工具本机已登录的本地凭证（如 Codex OAuth、Cursor 本地凭证）。请确保对应 CLI/IDE 已在当前机器登录。部分企业专有租户或未公开额度接口的模型方案可能无法返回配额数据。
-</details>
-
-<details>
-<summary><strong>Q: Linux AppImage 无法直接启动？</strong></summary>
-
-运行 `tokenclock doctor` 查看诊断日志。如果宿主机未安装 FUSE 2，最新安装器会自动降级采用解压模式运行，无需 `sudo apt install libfuse2`。
-</details>
-
-<details>
-<summary><strong>Q: 天气信息加载失败？</strong></summary>
-
-TokenClock 默认使用非侵入式网络 IP 解析城市并向 `wttr.in` 请求气象概览。若网络环境阻断，可在右键 **Settings → City** 中手动指定常用城市名称。
-</details>
-
----
-
-## 🛠️ 从源码构建
-
-```bash
-git clone https://github.com/Neo-Isshin/TokenClock.git
-cd TokenClock
-swift build -c release
-```
-
-- **macOS**：输出通用可执行文件与 App Bundle，包含 Liquid Glass 与 Normal 引擎。
-- **Windows**：支持配合 Swift 6 for Windows 工具链及 Win32Shim 编译。
-- **Linux**：使用 Swift Package Manager + GTK3 依赖构建。
-
----
-
-## ⚖️ 许可证与致谢
-
-- 本项目基于 **[MIT 许可证](LICENSE)** 开源 —— Copyright © 2026 Neo-Isshin。
-- 感谢 [Swift](https://www.swift.org/) 社区对跨平台 Swift 的不懈推进。
-- 感谢 Linux Normal 版所依托的 GTK 与 Cairo 图形库。
-- 感谢所有保持本地日志规范的 AI 编程工具开发者与社区支持者！
-
-### 新增本地 Harness
-
-已接入 Kilo Code（CLI 与旧版 VS Code 扩展记录）、Pi、OMP / Oh My Pi、Command Code 的本地 Token 用量。Freebuff 单独显示本地完成回复数，不将上下文大小或 credits 折算成 Token，也不声称支持其订阅额度。Hermes 统一使用黑白人物头像。详见[数据格式与限制](docs/ADDITIONAL_HARNESSES.md)。
+采用 [MIT 许可](LICENSE)。打包的第三方库和图片保留各自许可及署名。Ailyre 提供资讯、价格目录和网络检测页面；网络工具按界面标注使用 Cloudflare、Google、Globalping 等服务。OmniClock 是独立项目，并非所支持 AI 厂商的官方客户端。

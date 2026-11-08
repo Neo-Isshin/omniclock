@@ -127,7 +127,7 @@ fi
 plain="${VERSION#v}"
 grep -q "static let version = \"$plain\"" "$ROOT/Sources/TokenClock/Config/AppConfig.swift" \
   || die "Release notification version is not $plain"
-grep -q "CLI_VERSION=\"$plain\"" "$ROOT/cli/tokenclock" || die "CLI version is not $plain"
+grep -q "CLI_VERSION=\"$plain\"" "$ROOT/cli/omniclock" || die "CLI version is not $plain"
 grep -q "glass)  echo \"$VERSION\"" "$ROOT/cli/install.sh" || die "Glass installer tag is not $VERSION"
 if [ "$ONLY_GLASS" -eq 0 ]; then
 grep -q "normal) echo \"$VERSION\"" "$ROOT/cli/install.sh" || die "Normal installer tag is not $VERSION"
@@ -146,6 +146,7 @@ grep -q "\"$VERSION\"" "$ROOT/Sources/TokenClock/Linux/LinuxApp.swift" \
   || die "Linux About version is not $VERSION"
 fi
 bash -n "$ROOT/cli/install.sh"
+bash -n "$ROOT/cli/omniclock"
 bash -n "$ROOT/cli/tokenclock"
 
 glass_sha="$(sha256_file "$ASSETS_DIR/TokenClock-glass-universal.tar.gz")"

@@ -982,7 +982,7 @@ final class WindowsApp: @unchecked Sendable {
 
     fileprivate func handleAboutCmd(_ id: Int32) {
         guard id == 800 else { return }
-        "https://github.com/Neo-Isshin/TokenClock/issues".withCString { win_open_url($0) }
+        "https://github.com/Neo-Isshin/omniclock/issues".withCString { win_open_url($0) }
     }
 
     // MARK: - 用量总览

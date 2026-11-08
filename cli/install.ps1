@@ -1,10 +1,10 @@
 # TokenClock Windows per-user installer.
 #
 # One-liner:
-#   & ([scriptblock]::Create((irm https://www.ailyre.com/tokenclock/install.ps1)))
+#   & ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1)))
 #
 # Passing options through a one-liner:
-#   & ([scriptblock]::Create((irm https://www.ailyre.com/tokenclock/install.ps1))) -NoStart -StartMenuShortcut
+#   & ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1))) -NoStart -StartMenuShortcut
 
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -25,7 +25,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-$repo = 'Neo-Isshin/TokenClock'
+$repo = 'Neo-Isshin/omniclock'
 $assetName = 'TokenClock-windows-x86_64.zip'
 $checksumAssetName = "$assetName.sha256"
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
@@ -81,7 +81,7 @@ function Test-TokenClockInstallation([string] $Directory) {
     if (Test-Path -LiteralPath $metadataPath -PathType Leaf) {
         try {
             $metadata = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
-            if ($metadata.repository -eq $repo) { return $true }
+            if ($metadata.repository -in @($repo, 'Neo-Isshin/TokenClock')) { return $true }
         } catch { }
     }
     # Compatibility with Windows builds installed before install.json was introduced.
@@ -155,14 +155,14 @@ function Get-Release {
     $headers = @{ 'User-Agent' = 'TokenClock-Windows-Installer'; 'Accept' = 'application/json' }
     if ($Version -eq 'latest') {
         # Keep the Windows channel independent of macOS/Linux package publication.
-        $release = Invoke-RestMethod 'https://www.ailyre.com/tokenclock/releases/latest-windows.json' -Headers $headers
+        $release = Invoke-RestMethod 'https://www.ailyre.com/omniclock/releases/latest-windows.json' -Headers $headers
         if (-not $release.draft -and -not $release.prerelease -and (Test-ReleaseHasWindowsAssets $release)) {
             return $release
         }
         throw "No stable TokenClock release contains both $assetName and $checksumAssetName."
     }
     $encoded = [Uri]::EscapeDataString($Version)
-    return Invoke-RestMethod "https://www.ailyre.com/tokenclock/releases/$encoded.json" -Headers $headers
+    return Invoke-RestMethod "https://www.ailyre.com/omniclock/releases/$encoded.json" -Headers $headers
 }
 
 function Read-ExpectedHash([string] $Path) {
