@@ -181,27 +181,47 @@
     finally { clearTimeout(timer); signal.removeEventListener('abort', abort); controller.abort(); }
   }
   const resolverLocationCache = new Map();
-  async function resolveDNSLocations(resolvers, signal) {
+  async function resolveDNSLocations(resolvers, signal, timeoutMilliseconds = 12000) {
     const clean = window.TokenClockLeak?.normalizeIP;
     const publicIP = window.TokenClockLeak?.isPublicIP;
-    const selected = [...new Set(resolvers.map(x => clean?.(x)).filter(x => x && publicIP?.(x)))].slice(0, 6);
-    return Promise.all(selected.map(async address => {
-      if (resolverLocationCache.has(address)) return resolverLocationCache.get(address);
-      const encoded = encodeURIComponent(address);
-      const [who, country] = await Promise.all([
-        browserRequest('https://ipwho.is/' + encoded + '?fields=ip,success,country_code,region,city', signal),
-        browserRequest('https://api.country.is/' + encoded, signal)
-      ]);
-      const valid = value => value?.success !== false && clean?.(value?.ip) === address && /^[A-Z]{2}$/.test(value.country_code || value.country || '') && !['XX','T1'].includes(value.country_code || value.country);
-      const value = valid(who) ? who : valid(country) ? country : null;
-      const row = { id:'dns-geo-'+address, category:'dnsGeo', label:'DNS location', host:'', state:value ? 'observed':'unavailable', ip:address };
-      if (value) { row.country = value.country_code || value.country; row.region = value.region; row.city = value.city;
-        if (resolverLocationCache.size >= 128) resolverLocationCache.delete(resolverLocationCache.keys().next().value);
-        resolverLocationCache.set(address,row);
+    const selected = [...new Set(resolvers.map(x => clean?.(x)).filter(x => x && publicIP?.(x)))].slice(0, 32);
+    if (window.TokenClockDNSLocationsNative && nativeHandler()) {
+      return new Promise(resolve => {
+        const runID = crypto.randomUUID();
+        let timer;
+        const finish = result => {
+          clearTimeout(timer); pending.delete(runID); signal.removeEventListener('abort', abort);
+          resolve(Array.isArray(result?.rows) ? result.rows : []);
+        };
+        const abort = () => { nativeHandler()?.postMessage({action:'cancel',runID}); finish({rows:[]}); };
+        pending.set(runID,finish); signal.addEventListener('abort',abort,{once:true});
+        timer=setTimeout(abort,timeoutMilliseconds + 400);
+        if(signal.aborted) { abort(); return; }
+        nativeHandler().postMessage({action:'dnsLocations',runID,addresses:selected,timeoutMilliseconds});
+      });
+    }
+    const output = []; let next = 0;
+    async function worker() {
+      while(next < selected.length && !signal.aborted) {
+        const address = selected[next++];
+        if(resolverLocationCache.has(address)) {output.push(resolverLocationCache.get(address));continue;}
+        const encoded = encodeURIComponent(address);
+        const valid = value => value?.success !== false && clean?.(value?.ip) === address && /^[A-Z]{2}$/.test(value.country_code || value.country || '') && !['XX','T1'].includes(value.country_code || value.country);
+        let value = await browserRequest('https://ipwho.is/' + encoded + '?fields=ip,success,country_code,region,city',signal);
+        if(!valid(value) && !signal.aborted) value=await browserRequest('https://api.country.is/' + encoded,signal);
+        const row = {id:'dns-geo-'+address,category:'dnsGeo',label:'DNS location',host:'',state:valid(value)?'observed':'unavailable',ip:address};
+        if(valid(value)) {
+          row.country=value.country_code || value.country;row.region=value.region;row.city=value.city;
+          if(resolverLocationCache.size>=128) resolverLocationCache.delete(resolverLocationCache.keys().next().value);
+          resolverLocationCache.set(address,row);
+        }
+        output.push(row);
       }
-      return row;
-    }));
+    }
+    await Promise.all(Array.from({length:Math.min(4,selected.length)},worker));
+    return output;
   }
+
   async function browserCheck(runID, baseline, signal) {
     const [v4, v6] = await Promise.all([
       browserRequest('https://api.ipify.org?format=json', signal),

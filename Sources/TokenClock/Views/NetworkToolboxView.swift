@@ -159,8 +159,11 @@ struct NetworkToolboxResultCard: View {
     let icon: String
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 6) {
-                Label(card.localizedTitle, systemImage: icon).font(.system(size: 12, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.85)
+            HStack(spacing: 7) {
+                Image(systemName: icon).font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.accentColor).frame(width: 22, height: 22)
+                    .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                Text(card.localizedTitle).font(.system(size: 12, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.85)
                 Spacer(minLength: 4)
                 Text(card.localizedStatus).font(.system(size: 9.5, weight: .medium))
                     .foregroundStyle(card.state == "risk" || card.localAddressExposed ? Color.orange : card.state == "match" ? Color.green : Color.secondary)
@@ -171,13 +174,28 @@ struct NetworkToolboxResultCard: View {
                 .instantHint(card.resultSummary)
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(card.detailLines.enumerated()), id: \.offset) { _, line in
-                        Text(line).font(.system(size: 10.5, design: .monospaced)).lineLimit(1).truncationMode(.middle)
-                            .textSelection(.enabled).frame(maxWidth: .infinity, minHeight: NetworkToolboxCardLayout.rowHeight,
-                                maxHeight: NetworkToolboxCardLayout.rowHeight, alignment: .leading).instantHint(line)
+                    ForEach(Array(card.detailLines.enumerated()), id: \.offset) { index, line in
+                        let parts = line.components(separatedBy: " · ")
+                        HStack(spacing: 8) {
+                            Text(parts.first ?? line).font(.system(size: 10.5, weight: .medium, design: card.id == "dns" || card.id == "exit" || card.id == "rtc" ? .monospaced : .default))
+                                .lineLimit(1).truncationMode(.middle).layoutPriority(1)
+                            if parts.count > 1 {
+                                Spacer(minLength: 0)
+                                Text(parts.dropFirst().joined(separator: " · ")).font(.system(size: 10))
+                                    .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                            }
+                        }
+                        .textSelection(.enabled).padding(.horizontal, 7)
+                        .frame(maxWidth: .infinity, minHeight: NetworkToolboxCardLayout.rowHeight,
+                               maxHeight: NetworkToolboxCardLayout.rowHeight, alignment: .leading)
+                        .background(index.isMultiple(of: 2) ? Color.primary.opacity(0.018) : Color.clear)
+                        .instantHint(line)
+
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
-            }.frame(height: NetworkToolboxCardLayout.detailsHeight).clipped()
+            }.frame(height: NetworkToolboxCardLayout.detailsHeight)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.45), in: RoundedRectangle(cornerRadius: 7))
+                .clipShape(RoundedRectangle(cornerRadius: 7))
         }
         .frame(height: NetworkToolboxCardLayout.contentHeight, alignment: .topLeading)
         .toolboxCard().accessibilityIdentifier("network-result-card." + card.id)
@@ -223,11 +241,14 @@ struct NetworkToolboxView: View {
                 Spacer()
                 Button(action: onBrowser) { Image(systemName: "safari") }.instantHint(toolboxText("在默认浏览器中单独检测", "Check the default browser separately"))
                 if model.running { Button(toolboxText("停止", "Stop"), action: onStop).instantHint(toolboxText("立即取消本次探测", "Cancel this check immediately")) }
-                else { Button(toolboxText("开始检测", "Run checks"), action: onRun).instantHint(toolboxText("检测一次，完成后停止", "Run once, then stop")) }
+                else { Button(action: onRun) { Label(toolboxText("开始检测", "Run checks"), systemImage: "arrow.clockwise") }.instantHint(toolboxText("检测一次，完成后停止", "Run once, then stop")) }
             }.buttonStyle(.bordered).padding(.horizontal, 20).padding(.vertical, 16)
             Divider()
             HStack(spacing: 7) {
                 if model.running { ProgressView().controlSize(.mini) }
+                else { Image(systemName: model.cards.contains(where: { $0.state == "risk" || $0.localAddressExposed }) ? "exclamationmark.shield" : "shield.lefthalf.filled")
+                    .font(.system(size: 19, weight: .medium)).foregroundStyle(Color.accentColor)
+                    .frame(width: 28).padding(.trailing, 5) }
                 VStack(alignment:.leading,spacing:3) {
                     if !combinedSummary.isEmpty {Text(combinedSummary).font(.system(size:12,weight:.semibold)).fixedSize(horizontal:false,vertical:true)}
                     if !model.pendingSummary.isEmpty { Text(model.pendingSummary).font(.system(size:10)).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true) }
@@ -275,7 +296,10 @@ struct MainlandReachabilityCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 6) {
-                Label(toolboxText("大陆可达性", "Mainland reachability"), systemImage: "globe")
+                Image(systemName: "globe").font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.accentColor).frame(width: 22, height: 22)
+                    .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                Text(toolboxText("大陆可达性", "Mainland reachability"))
                     .font(.system(size: 12, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.85)
                 Spacer(minLength: 4)
                 Text(model.running ? toolboxText("检测中", "Checking") : model.report == nil ? toolboxText("尚未检测", "Not checked") : toolboxText("已完成", "Finished"))

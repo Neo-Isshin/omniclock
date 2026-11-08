@@ -15,13 +15,13 @@ private actor DNSResolverLocationCache {
     }
 }
 
-/// Resolve the six DNS sources shown on the card. This is location information,
+/// Resolve all observed DNS sources after the DNS probe finishes. This is location information,
 /// never evidence that a resolver is allowed or that DNS traffic stayed in a VPN.
 enum DNSResolverLocations {
     static func addresses(_ values: [String]) -> [String] {
         var seen = Set<String>()
         return values.compactMap { MainlandReachabilityTarget.parse(ip: $0, port: "443")?.ip }
-            .filter { seen.insert($0).inserted }.prefix(6).map { $0 }
+            .filter { seen.insert($0).inserted }.prefix(32).map { $0 }
     }
 
     static func parse(_ reply: NetworkDiagnosticReply, ip: String, source: String) -> NetworkDiagnosticRow? {
@@ -34,40 +34,39 @@ enum DNSResolverLocations {
             city: (body["city"] as? String).map { String($0.prefix(100)) })
     }
 
-    static func run(token: String?) async -> [NetworkDiagnosticRow] {
-        guard let token, token.range(of: "^[a-f0-9]{32}$", options: .regularExpression) != nil else { return [] }
-        // A separate short-lived transport keeps a failed lookup from cancelling
-        // the actual DNS, WebRTC, or connection checks.
-        let fetcher = NetworkDiagnosticFetcher(requestTimeout: 1.5, resourceTimeout: 3)
-        defer { fetcher.cancel() }
-        var selected: [String] = []
-        for attempt in 0..<4 {
-            guard !Task.isCancelled else { return [] }
-            let reply = await fetcher.fetch(URL(string: "https://www.ailyre.com/tokenclock/network-check/result/" + token)!)
-            if reply.status == 200, let body = NetworkDiagnosticParser.json(reply.data), let raw = body["resolvers"] as? [String] {
-                selected = addresses(raw)
-                if !selected.isEmpty, (body["probesObserved"] as? Int ?? 0) >= 3 || attempt == 3 { break }
-            }
-            if attempt < 3 { try? await Task.sleep(nanoseconds: 400_000_000) }
+    static func lookup(_ values: [String], timeout: TimeInterval = 10) async -> [NetworkDiagnosticRow] {
+        let selected = addresses(values)
+        guard !selected.isEmpty, !Task.isCancelled else { return [] }
+        let fetcher = NetworkDiagnosticFetcher(requestTimeout: 3, resourceTimeout: 4)
+        let deadline = Task {
+            try? await Task.sleep(nanoseconds: UInt64(min(12, max(0.2, timeout)) * 1_000_000_000))
+            if !Task.isCancelled { fetcher.cancel() }
         }
-        guard !Task.isCancelled else { return [] }
+        defer { deadline.cancel(); fetcher.cancel() }
+        // Bound concurrency so a large resolver set cannot exhaust the location
+        // service or make queued requests time out before they reach the network.
         return await withTaskGroup(of: NetworkDiagnosticRow.self) { group in
-            for ip in selected {
+            var iterator = selected.makeIterator()
+            func enqueue(_ ip: String) {
                 group.addTask {
                     if let cached = await DNSResolverLocationCache.shared.get(ip) { return cached }
                     let first = URL(string: "https://ipwho.is/" + ip + "?fields=ip,success,country_code,region,city")!
                     let second = URL(string: "https://api.country.is/" + ip)!
-                    async let who = fetcher.fetch(first)
-                    async let country = fetcher.fetch(second)
-                    let replies = await (who, country)
-                    let row = parse(replies.0, ip: ip, source: "IPWhois") ?? parse(replies.1, ip: ip, source: "Country.is")
-                        ?? NetworkDiagnosticRow(id: "dns-geo-" + ip, category: "dnsGeo", label: "DNS location", host: "", state: "unavailable", ip: ip)
-                    await DNSResolverLocationCache.shared.put(row)
-                    return row
+                    var row = parse(await fetcher.fetch(first), ip: ip, source: "IPWhois")
+                    if row == nil, !Task.isCancelled {
+                        row = parse(await fetcher.fetch(second), ip: ip, source: "Country.is")
+                    }
+                    let result = row ?? NetworkDiagnosticRow(id: "dns-geo-" + ip, category: "dnsGeo", label: "DNS location", host: "", state: "unavailable", ip: ip)
+                    await DNSResolverLocationCache.shared.put(result)
+                    return result
                 }
             }
+            for _ in 0..<4 { if let ip = iterator.next() { enqueue(ip) } }
             var rows: [NetworkDiagnosticRow] = []
-            for await row in group { rows.append(row) }
+            for await row in group {
+                rows.append(row)
+                if !Task.isCancelled, let ip = iterator.next() { enqueue(ip) }
+            }
             return rows.sorted { ($0.ip ?? "") < ($1.ip ?? "") }
         }
     }

@@ -23,6 +23,13 @@
 .checks-grid .diagnostic-row small{display:inline;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:18px;max-width:48%}
 .checks-grid .diagnostic-name{padding:0;max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .badge[data-state=partial]{color:var(--muted)}
+/* Match the app's neutral modal surfaces, restrained accents and inset results. */
+:root{color:#252528;background:#f5f5f7;--line:#00000012;--card:#ffffffb8;--muted:#707077;--accent:#327dbe}
+body{background:none}.mark{box-shadow:none;background:#327dbe0c;border-color:var(--line)}
+h1{font-size:20px;letter-spacing:-.3px}.card{border:1px solid var(--line);outline:none;box-shadow:none;border-radius:14px;background:#ffffff80}
+.checks-grid .addresses{border-radius:7px;background:#00000002}.checks-grid .address,.checks-grid .diagnostic-row{padding:0 6px}
+.checks-grid .address:nth-child(odd),.checks-grid .diagnostic-row:nth-child(odd){background:#00000004}
+@media(prefers-color-scheme:dark){:root{color:#e9e9eb;background:#242426;--line:#ffffff15;--card:#303033;--muted:#a4a4ac;--accent:#70b1e6}.card{background:#ffffff06}.checks-grid .addresses{background:#00000020}.checks-grid .address:nth-child(odd),.checks-grid .diagnostic-row:nth-child(odd){background:#ffffff04}}
 </style></head><body><main>
 <header><div class="mark" aria-hidden="true"><svg width="26" height="29" viewBox="0 0 26 29" fill="none"><path d="M13 2 23 6v7c0 6-5 10-10 13C8 23 3 19 3 13V6L13 2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m8 14 3.3 3.3L18 10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><h1 id="title">Network Check</h1><p id="subtitle"></p></div></header>
 <div id="scope" class="scope"></div>

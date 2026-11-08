@@ -31,9 +31,11 @@ overwrites both source headers before forwarding to the loopback API.
 - DNS resolver sources can be upstream resolvers, rather than the resolver IP
   configured locally. Without optional expected resolver IPs, show observations
   for review. Do not infer a leak from location or an HTTP/DNS IP difference.
-- The DNS card shows at most six sources with location data from IPWhois or
-  Country.is. Lookups validate the returned IP; unavailable locations stay unknown.
-  All observed sources still participate in the expected-DNS comparison. Successful
+- The DNS card retains all observed sources in a six-row scrollable viewport.
+  Location lookups start after DNS collection and use IPWhois with Country.is as
+  a fallback. Four workers limit requests; the native transport avoids browser
+  CORS restrictions. Lookups validate the returned IP; unavailable locations stay
+  unknown. All observed sources participate in the expected-DNS comparison. Successful
   lookups are cached in memory for six hours; there are no background lookups.
 - Public ICE candidates differing from the HTTPS source within the same address
   family are risk evidence, not proof of VPN failure. An unmatched address family

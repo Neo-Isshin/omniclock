@@ -39,3 +39,31 @@ for (const language of ['en','zh-CN']) {
   assert.equal(elements.get('aiAddresses').children.length,6);
 }
 console.log('English/Chinese card conclusions and partial-result presentation passed');
+
+async function testAllResolverRowsRemainAvailable() {
+  const elements=new Map([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],new Element()]));
+  const addresses=Array.from({length:18},(_,i)=>'8.8.4.'+(i+1));
+  const token='a'.repeat(32);
+  let lookedUp=[];
+  const window={addEventListener(){},TokenClockDiagnostics:{
+    reset(){},summarize(){},render(){},stopped(){},
+    async start(){return {rows:[{category:'dnsGeo',ip:addresses[0],country:'US',state:'observed'}]};},
+    async resolveDNSLocations(values){lookedUp=values;return values.map(ip=>({ip,country:'US',city:'Example city',state:'observed'}));}
+  }};
+  const context={window,document:{getElementById:id=>elements.get(id),createElement:tag=>new Element(tag),documentElement:{}},
+    location:{href:'https://www.ailyre.com/tokenclock/network-check/?lang=en',hash:''},navigator:{language:'en'},URL,Intl,AbortController,setTimeout,clearTimeout,
+    crypto:{randomUUID:()=> 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'},
+    async fetch(url){
+      const payload=url.endsWith('/session')?{token,ip:'1.1.1.1',hosts:[0,1,2].map(i=>'p'+i+'.'+token+'.probe.tokenclock.ailyre.com'),stun:'stun:ns.tokenclock.ailyre.com:3478'}
+        :{resolvers:addresses,probesObserved:3};
+      return {ok:true,json:async()=>payload};
+    }};
+  vm.runInNewContext(fs.readFileSync(__dirname+'/probe.js','utf8'),context);
+  await elements.get('start').onclick();
+  assert.equal(elements.get('dnsAddresses').children.length,18,'No six-result truncation');
+  assert.equal(lookedUp.length,17,'Resolve missing locations after final DNS collection');
+  assert.equal(window.TokenClockLeak.snapshot().locations.length,18);
+  assert(elements.get('dnsAddresses').children[17].textContent.includes('Example city'));
+  console.log('All DNS rows retained; later sources receive location lookups');
+}
+testAllResolverRowsRemainAvailable().catch(error=>{console.error(error);process.exitCode=1;});

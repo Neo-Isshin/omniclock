@@ -184,7 +184,7 @@
     };
     summary('dns', reason === 'partialDNSCheck' ? T('Some DNS results are missing; a leak cannot be determined.', 'DNS 结果不完整，暂无法判断是否泄漏。') : texts[state]);
     const locations = last.locations || [];
-    addresses('dnsAddresses', last.resolvers.slice(0, 6).map(address => {
+    addresses('dnsAddresses', last.resolvers.map(address => {
       const row = locations.find(x => ip(x.ip) === address);
       const place = row ? [row.city, countryName(row.country)].filter(Boolean).join(', ') : '';
       return { address, tag: place || T('Location unavailable', '位置未知') };
@@ -277,7 +277,7 @@
   }
   async function start() {
     if (active) return;
-    const run = { id: crypto.randomUUID(), controller: new AbortController(), pc: null, cancellations: new Set() };
+    const run = { startedAt: Date.now(), id: crypto.randomUUID(), controller: new AbortController(), pc: null, cancellations: new Set() };
     active = run; last = null;
     run.deadline = setTimeout(() => { if (active === run) stop(); }, 25000);
     if($('overallSummary')) $('overallSummary').textContent=T('Checking; waiting for evidence…','检测中，等待观测证据…');
@@ -303,17 +303,20 @@
       if (active !== run) return;
       const resolvers = [...new Set(dnsResult.resolvers.map(ip).filter(Boolean))];
       let locations = (diagnostics.rows || []).filter(x => x.category === 'dnsGeo');
-      if (!locations.length && resolvers.length) {
-        locations = await window.TokenClockDiagnostics.resolveDNSLocations(resolvers, run.controller.signal);
-        if (active !== run) return;
-        diagnostics.rows = [...(diagnostics.rows || []), ...locations];
-      }
       last = { resolvers, rtc, ip: session.ip, locations, dnsComplete: dnsResult.probesObserved >= 3 };
       renderDNS();
       const tags = { public: T('Public', '公网'), local: T('Local / special', '内网 / 特殊地址'), mdns: T('Local IP hidden', '内网 IP 已隐藏'), relay: T('Relay', '中继') };
       addresses('rtcAddresses', rtc.found.map(x => ({ address: x.address, tag: tags[x.kind] })), T('No address candidates available.', '没有获取到可用候选地址。'));
       renderRTC(diagnostics);
       window.TokenClockDiagnostics.render(diagnostics, session.ip, rtc.found);
+      const missingLocations = resolvers.filter(address => !locations.some(row => row.ip === address && row.state === 'observed'));
+      if (missingLocations.length) {
+        const additional = await window.TokenClockDiagnostics.resolveDNSLocations(missingLocations, run.controller.signal, Math.max(500, Math.min(12000, 24000 - (Date.now() - run.startedAt))));
+        locations = [...locations.filter(row => !missingLocations.includes(row.ip)), ...additional];
+        if (active !== run) return;
+        last.locations = locations;
+        renderDNS();
+      }
       $('idle').textContent = T('Check finished', '本次检测完成');
       $('idleHint').textContent = T('No probes are running. Results apply to this check only.', '探测已停止，结果仅代表本次检测。');
     } catch (_) {

@@ -215,7 +215,6 @@ enum NetworkDiagnostics {
     }
 
     static func run(runID: String, baselineIP: String?, fetcher: NetworkDiagnosticFetcher, dnsToken: String? = nil) async -> NetworkDiagnosticsResult {
-        async let resolverLocations = DNSResolverLocations.run(token: dnsToken)
         var rows = await withTaskGroup(of: NetworkDiagnosticRow.self) { group in
             for target in targets {
                 group.addTask { parse(await fetcher.fetch(URL(string: target.url)!, head: target.head), target: target) }
@@ -258,7 +257,6 @@ enum NetworkDiagnostics {
         }
         rows += locations
         rows += await dohRows
-        rows += await resolverLocations
         return .init(runID: runID, rows: rows.sorted { $0.id < $1.id })
     }
 }
