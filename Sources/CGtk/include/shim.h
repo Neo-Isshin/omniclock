@@ -310,7 +310,7 @@ static inline void tc_gtk_show_about(
     );
     gtk_about_dialog_set_website(
         GTK_ABOUT_DIALOG(dialog),
-        "https://github.com/Neo-Isshin/TokenClock/issues"
+        "https://github.com/Neo-Isshin/omniclock/issues"
     );
     gtk_about_dialog_set_website_label(GTK_ABOUT_DIALOG(dialog), "GitHub Issues");
     if (logo_path != NULL && logo_path[0] != '\0') {
