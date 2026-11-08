@@ -1158,7 +1158,7 @@ final class WindowsApp: @unchecked Sendable {
     fileprivate func handleAboutCmd(_ id: Int32) {
         let url: String
         switch id {
-        case 800: url = "https://github.com/Neo-Isshin/TokenClock/issues"
+        case 800: url = "https://github.com/Neo-Isshin/omniclock/issues"
         case 801: url = "https://www.ailyre.com"
         default: return
         }

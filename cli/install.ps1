@@ -25,7 +25,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-$repo = 'Neo-Isshin/TokenClock'
+$repo = 'Neo-Isshin/omniclock'
 $assetName = 'TokenClock-windows-x86_64.zip'
 $checksumAssetName = "$assetName.sha256"
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
@@ -81,7 +81,7 @@ function Test-TokenClockInstallation([string] $Directory) {
     if (Test-Path -LiteralPath $metadataPath -PathType Leaf) {
         try {
             $metadata = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
-            if ($metadata.repository -eq $repo) { return $true }
+            if ($metadata.repository -in @($repo, 'Neo-Isshin/TokenClock')) { return $true }
         } catch { }
     }
     # Compatibility with Windows builds installed before install.json was introduced.
