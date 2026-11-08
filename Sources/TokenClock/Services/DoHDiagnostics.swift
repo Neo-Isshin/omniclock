@@ -120,7 +120,8 @@ enum DoHDiagnostics {
             // DoH request. Google's resolver IP / ECS subnet is not an equivalent.
             let echo=await fetcher.fetch(request("https://cloudflare-dns.com/dns-query",name:"whoami.cloudflare",type:16,qclass:3))
             var row=NetworkDiagnosticRow(id:"doh-client",category:"dohEcho",label:"Cloudflare DoH 出口",host:"cloudflare-dns.com",state:"unknown",note:"没有精确客户端 IP 证据",proxy:echo.proxy)
-            if verified(echo,name:"whoami.cloudflare",type:16,qclass:3),let ip=DoHWire.response(echo.data,question:"whoami.cloudflare",type:16,qclass:3)?.addresses.first {
+            if verified(echo,name:"whoami.cloudflare",type:16,qclass:3),let ip=DoHWire.response(echo.data,question:"whoami.cloudflare",type:16,qclass:3)?.addresses.first,
+               MainlandReachabilityTarget.parse(ip:ip,port:"443") != nil {
                 row.ip=ip;row.state="observed";row.note="本次 DoH 请求返回的客户端 IP"
             }
             rows.append(row)

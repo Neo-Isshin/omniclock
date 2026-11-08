@@ -25,3 +25,37 @@ import XCTest
     }
 }
 #endif
+
+#if os(macOS)
+extension NetworkToolboxSummaryTests {
+    @MainActor func testWebExitAndReachableSitesCannotMakeUnknownLeakChecksLookSafe() {
+        let model = NetworkToolboxPresentation()
+        model.cards = [
+            .init(id:"exit",title:"",status:"",text:"1.1.1.1",state:"observed"),
+            .init(id:"dns",title:"",status:"",text:"",state:"review"),
+            .init(id:"rtc",title:"",status:"",text:"",state:"incomplete"),
+            .init(id:"ipv6",title:"",status:"",text:"",state:"notObserved"),
+            .init(id:"ai",title:"",status:"",text:"",state:"partial"),
+            .init(id:"doh",title:"",status:"",text:"",state:"partial")
+        ]
+        XCTAssertFalse(model.issueSummary.contains("No leak"))
+        XCTAssertFalse(model.issueSummary.contains("未发现异常"))
+        XCTAssertTrue(model.pendingSummary.contains("DNS"))
+        XCTAssertTrue(model.pendingSummary.contains("IPv6"))
+        XCTAssertFalse(model.pendingSummary.contains("incomplete"))
+        XCTAssertFalse(model.pendingSummary.contains("未完成"))
+    }
+    @MainActor func testEachResultHasAPlainConclusionAndLocalExposureIsExplicit() {
+        let model = NetworkToolboxPresentation()
+        model.update(["running":false,"cards":[
+            ["id":"rtc","state":"review","reason":"localAddressExposed","text":"192.168.1.10"],
+            ["id":"dns","state":"match","text":"1.1.1.1 · Australia"],
+            ["id":"doh","state":"match","reason":"sameDoHExit","text":"Cloudflare · connected"]
+        ]])
+        XCTAssertEqual(model.cards.first?.reason,"localAddressExposed")
+        XCTAssertTrue(model.issueSummary.contains("WebRTC"))
+        XCTAssertTrue(model.cards.allSatisfy { !$0.resultSummary.isEmpty })
+        XCTAssertFalse(model.cards[2].localizedStatus.contains("verified"))
+    }
+}
+#endif
