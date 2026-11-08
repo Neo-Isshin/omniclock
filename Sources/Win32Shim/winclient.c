@@ -1,4 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <winhttp.h>
 
@@ -12,7 +14,7 @@
 /*
  * Small, synchronous WinHTTP client used by the Swift Windows target.
  *
- * Network policy is deliberately explicit: no system proxy, no automatic
+ * Network policy is deliberately explicit: optional system proxy, no automatic
  * cookies or credentials, no redirects, and normal WinHTTP certificate/name
  * validation for HTTPS.  Callers run this function on their existing worker
  * queues; the Win32 message thread never blocks here.
@@ -49,10 +51,12 @@ int win_native_http_request(const char *url_utf8,
                             int connect_timeout_ms,
                             int send_timeout_ms,
                             int receive_timeout_ms,
+                            int use_system_proxy,
                             unsigned char *response_body,
                             int response_capacity,
                             int *out_response_length,
                             int *out_status_code,
+                            char *out_content_type, int content_type_capacity,
                             unsigned long *out_error) {
     wchar_t *url = NULL;
     wchar_t *method = NULL;
@@ -107,7 +111,7 @@ int win_native_http_request(const char *url_utf8,
             goto cleanup;
         }
     }
-    if (_wcsicmp(method, L"GET") != 0 && _wcsicmp(method, L"POST") != 0) {
+    if (_wcsicmp(method, L"GET") != 0 && _wcsicmp(method, L"POST") != 0 && _wcsicmp(method, L"HEAD") != 0) {
         error = ERROR_INVALID_PARAMETER;
         goto cleanup;
     }
@@ -154,7 +158,7 @@ int win_native_http_request(const char *url_utf8,
     }
 
     session = WinHttpOpen(L"TokenClock/1.4 Windows",
-                          WINHTTP_ACCESS_TYPE_NO_PROXY,
+                          use_system_proxy ? WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY : WINHTTP_ACCESS_TYPE_NO_PROXY,
                           WINHTTP_NO_PROXY_NAME,
                           WINHTTP_NO_PROXY_BYPASS,
                           0);
@@ -245,6 +249,11 @@ int win_native_http_request(const char *url_utf8,
         goto cleanup;
     }
 
+    if(out_content_type && content_type_capacity>0){
+        out_content_type[0]=0;wchar_t type[256]={0};DWORD length=sizeof(type);
+        if(WinHttpQueryHeaders(request,WINHTTP_QUERY_CONTENT_TYPE,WINHTTP_HEADER_NAME_BY_INDEX,type,&length,WINHTTP_NO_HEADER_INDEX))
+            WideCharToMultiByte(CP_UTF8,0,type,-1,out_content_type,content_type_capacity,NULL,NULL);
+    }
     for (;;) {
         if (!WinHttpQueryDataAvailable(request, &bytes_available)) {
             error = GetLastError();
@@ -277,4 +286,17 @@ cleanup:
     free(url);
     if (!ok) return native_http_fail(out_error, error ? error : GetLastError());
     return 1;
+}
+
+#include "../CToolboxShared/NetworkProbe.h"
+int win_ntp_exchange(const unsigned char *request,int request_size,unsigned char *out,int capacity,int *received){return tc_native_ntp_exchange(request,request_size,out,capacity,received);}
+
+int win_normalize_ip_address(const char *input, char *output, int capacity) {
+    if (!input || !output || capacity < 46) return 0;
+    unsigned char address[16]; int family = strchr(input, ':') ? AF_INET6 : AF_INET;
+    if (InetPtonA(family,input,address) != 1) return 0;
+    return InetNtopA(family,address,output,(DWORD)capacity) != NULL;
+}
+int win_replace_local_file(const wchar_t *source, const wchar_t *destination) {
+    return MoveFileExW(source,destination,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH) ? 0 : (int)GetLastError();
 }

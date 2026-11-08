@@ -37,14 +37,14 @@ final class GrokBotNativeCredentialStore: @unchecked Sendable {
     private var needsAuthorization = false
     private var readFailed = false
 
-    init(supportDirectory: String = NSHomeDirectory() + "/Library/Application Support/Grok Bot",
+    init(supportDirectory: String = AppPaths.appSupport("Grok Bot"),
          passwordReader: PasswordReader? = nil) {
         self.supportDirectory = supportDirectory
         self.passwordReader = passwordReader ?? Self.readSafeStoragePassword
     }
     private var secretsPath: String { supportDirectory + "/sand-secrets.json" }
     var hasSignedInInstance: Bool {
-        #if os(macOS)
+        #if os(macOS) || os(Windows)
         guard let data = boundedData(supportDirectory + "/desktop-status.json", limit: 65_536),
               let status = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               status["signedIn"] as? Bool == true else { return false }
@@ -58,7 +58,7 @@ final class GrokBotNativeCredentialStore: @unchecked Sendable {
     /// already available Cursor credential belongs to that exact App account.
     func acceptsCursorToken(_ token: String) -> Bool {
         guard hasSignedInInstance else { return true }
-        #if os(macOS)
+        #if os(macOS) || os(Windows)
         guard let data = boundedData(secretsPath, limit: 4_194_304),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let text = root["cursor-accounts"] as? String,
@@ -70,7 +70,6 @@ final class GrokBotNativeCredentialStore: @unchecked Sendable {
         return false
         #endif
     }
-    #if os(macOS)
     static func accountScope(for token: String) -> String {
         let parts = token.split(separator: ".", omittingEmptySubsequences: false)
         var principal = token
@@ -81,9 +80,8 @@ final class GrokBotNativeCredentialStore: @unchecked Sendable {
                let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let subject = payload["sub"] as? String { principal = subject }
         }
-        return SHA256.hash(data: Data(principal.utf8)).map { String(format: "%02x", $0) }.joined()
+        return CacheHash.sha256(Data(principal.utf8)).map { String(format: "%02x", $0) }.joined()
     }
-    #endif
     var accessState: GrokBotNativeAccessState {
         let signedIn = hasSignedInInstance
         return lock.withLock {
@@ -126,7 +124,13 @@ final class GrokBotNativeCredentialStore: @unchecked Sendable {
     }
     private func loadCredential(allowInteraction: Bool) -> GrokBotNativeCredential? {
         guard hasSignedInInstance else { resetMemory(); return nil }
-        #if os(macOS)
+        #if os(Windows)
+        let credential = boundedData(secretsPath,limit:4_194_304).flatMap {
+            WindowsGrokCredential.decode($0,localState:boundedData(supportDirectory+"/Local State",limit:4_194_304) ?? Data())
+        }
+        lock.withLock {cachedCredential=credential;readFailed=credential==nil;needsAuthorization=false}
+        return credential
+        #elseif os(macOS)
         guard let data = boundedData(secretsPath, limit: 4_194_304) else {
             lock.withLock { cachedCredential = nil; readFailed = true; needsAuthorization = false }
             return nil

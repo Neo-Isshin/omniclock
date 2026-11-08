@@ -3,7 +3,11 @@ import Foundation
 /// Public release metadata only; never reads credentials or installs an update.
 /// Background checks are claimed at most once every twelve hours.
 final class ReleaseUpdateService: @unchecked Sendable {
+    #if os(Windows)
+    static let shared = ReleaseUpdateService(defaults: WindowsDurableDefaults.persistent)
+    #else
     static let shared = ReleaseUpdateService()
+    #endif
     static let checkInterval: TimeInterval = 12 * 3600
     private static let checkKey = "TC_releaseLastScheduledCheckAt"
     private static let noticeKey = "TC_releaseUpdateNotice"
@@ -17,7 +21,7 @@ final class ReleaseUpdateService: @unchecked Sendable {
         case unavailable
     }
 
-    static let distributionRoot = "https://www.ailyre.com/tokenclock"
+    static let distributionRoot = "https://www.ailyre.com/omniclock"
     static let releasesURL = URL(string: distributionRoot + "/releases/")!
     static let latestMetadataURL = URL(string: distributionRoot + "/releases/latest.json")!
 

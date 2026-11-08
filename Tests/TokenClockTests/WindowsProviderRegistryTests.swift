@@ -6,7 +6,8 @@ import XCTest
 final class WindowsProviderRegistryTests: XCTestCase {
     func testRegistryRetainsExistingFourteenProvidersAndAddsScopedProviders() throws {
         let entries = WindowsProviderCatalog.orderedEntries
-        XCTAssertEqual(entries.count, 17)
+        XCTAssertEqual(entries.count, 24)
+        XCTAssertTrue(Set(["Kilo Code","Pi","OMP","Freebuff","Command Code","PiG","DSH"]).isSubset(of:Set(entries.map(\.displayName))))
         XCTAssertEqual(Set(entries.map(\.id)).count, entries.count)
         XCTAssertEqual(Set(entries.map(\.displayName)).count, entries.count)
 
@@ -40,7 +41,7 @@ final class WindowsProviderRegistryTests: XCTestCase {
 
     func testMissingSettingsPreferenceUsesOnlyDefaultEnabledProviders() {
         let defaults = WindowsProviderCatalog.enabledDisplayNames(saved: nil)
-        XCTAssertEqual(defaults.count, 15)
+        XCTAssertEqual(defaults.count, 22)
         XCTAssertFalse(defaults.contains("Kiro CLI"))
         XCTAssertFalse(defaults.contains("CodeBuddy CLI"))
         XCTAssertEqual(WindowsProviderCatalog.enabledDisplayNames(saved: []), [])

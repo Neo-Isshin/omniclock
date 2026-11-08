@@ -7,10 +7,13 @@
 # 用法（本地或 CI）：
 #   pwsh scripts/build-windows.ps1              # 产物写到 .\dist\
 #   pwsh scripts/build-windows.ps1 -Zip         # 额外打 zip + sha256
-param([switch]$Zip)
+param([switch]$Zip, [switch]$UIReview)
+if($Zip -and $UIReview){throw "UI review builds cannot be published"}
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
+$buildRoot = if($UIReview){'.build-ui-review'}else{'.build'}
+$buildArguments = if($UIReview){@('--scratch-path',$buildRoot,'-Xcc','-DOMNICLOCK_UI_REVIEW')}else{@()}
 
 Write-Host '== swift build -c release (dynamic stdlib) =='
 Push-Location $root
@@ -19,15 +22,16 @@ try {
     # the LLVM tools bundled by Swift and pass it directly to lld-link so Explorer/installer APIs
     # expose FileVersion/ProductVersion/ProductName instead of empty metadata.
     $llvmRc = (Get-Command llvm-rc.exe -ErrorAction Stop).Source
-    $resourceDir = Join-Path $root '.build\windows-resources'
+    $resourceDir = Join-Path (Join-Path $root $buildRoot) 'windows-resources'
     New-Item -ItemType Directory -Path $resourceDir -Force | Out-Null
     $resource = Join-Path $resourceDir 'TokenClock.res'
     & $llvmRc /FO $resource (Join-Path $root 'Sources\Win32Shim\TokenClock.rc')
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $resource)) { throw 'failed to compile TokenClock.rc' }
-    swift build -c release -Xlinker $resource
+    swift build -c release --jobs 4 @buildArguments -Xlinker $resource
+    if($LASTEXITCODE -ne 0){throw "Swift build failed"}
 } finally { Pop-Location }
 
-$exe = Join-Path $root '.build\release\TokenClock.exe'
+$exe = Join-Path (Join-Path $root $buildRoot) 'release\TokenClock.exe'
 if (-not (Test-Path $exe)) { throw "build did not produce $exe" }
 
 # The Windows app deliberately uses native WinHTTP/Winsock. Swift 6.3.3's
@@ -74,7 +78,7 @@ if (-not $runtimeBin) { throw 'cannot locate the Swift runtime matching the acti
 Write-Host "== runtime DLLs: $runtimeBin =="
 $vcrt = Get-ChildItem 'C:\Program Files (x86)\Microsoft Visual Studio\*\BuildTools\VC\Redist\MSVC\*\x64\Microsoft.VC143.CRT\vcruntime140.dll' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
 
-$dist = Join-Path $root 'dist'
+$dist = Join-Path $root $(if($UIReview){'dist-ui-review'}else{'dist'})
 if (Test-Path $dist) { Remove-Item -Recurse -Force $dist }
 New-Item -ItemType Directory -Path $dist | Out-Null
 
@@ -86,6 +90,17 @@ if ($vcrt -and -not (Test-Path (Join-Path $dist 'vcruntime140.dll'))) { Copy-Ite
 $resources = Join-Path (Split-Path $exe) 'TokenClock_TokenClock.resources'
 if (-not (Test-Path $resources)) { throw "build did not produce resource bundle $resources" }
 Copy-Item $resources (Join-Path $dist 'TokenClock_TokenClock.resources') -Recurse
+# Local WebView assets must change URL when a hot update changes their content.
+$webAssets=Join-Path $dist 'TokenClock_TokenClock.resources\WindowsUI'
+$webIndex=Join-Path $webAssets 'index.html'
+if (Test-Path $webIndex) {
+    $html=[IO.File]::ReadAllText($webIndex)
+    foreach($asset in @('ui.css','ui.js')) {
+        $revision=(Get-FileHash (Join-Path $webAssets $asset) -Algorithm SHA256).Hash.Substring(0,12).ToLower()
+        $html=$html.Replace('"'+$asset+'"','"'+$asset+'?v='+$revision+'"')
+    }
+    [IO.File]::WriteAllText($webIndex,$html,[Text.UTF8Encoding]::new($false))
+}
 
 $files = @(Get-ChildItem $dist -Recurse -File)
 $count = $files.Count

@@ -5,6 +5,7 @@ import Win32Shim
 struct WindowsNativeHTTPResponse: Sendable {
     let statusCode: Int
     let body: Data
+    var mimeType: String? = nil
 }
 
 enum WindowsNativeHTTPError: Error, CustomStringConvertible {
@@ -20,7 +21,7 @@ enum WindowsNativeHTTPError: Error, CustomStringConvertible {
 }
 
 /// Synchronous Windows-native request bridge. Callers are responsible for invoking it from a
-/// background task/queue; all current users already do so. Redirects, ambient proxy settings,
+/// background task/queue; all current users already do so. Redirects,
 /// cookie persistence and automatic credentials are disabled in the C implementation.
 enum WindowsNativeHTTP {
     static func request(
@@ -31,10 +32,11 @@ enum WindowsNativeHTTP {
         connectTimeout: TimeInterval = 10,
         sendTimeout: TimeInterval = 10,
         receiveTimeout: TimeInterval = 30,
-        maximumResponseBytes: Int = 2 * 1024 * 1024
+        maximumResponseBytes: Int = 2 * 1024 * 1024,
+        useSystemProxy: Bool = true
     ) throws -> WindowsNativeHTTPResponse {
         guard !url.isEmpty,
-              method == "GET" || method == "POST",
+              method == "GET" || method == "POST" || method == "HEAD",
               (body?.count ?? 0) <= Int(Int32.max),
               maximumResponseBytes > 0,
               maximumResponseBytes <= 16 * 1024 * 1024 else {
@@ -63,6 +65,7 @@ enum WindowsNativeHTTP {
         var responseLength: Int32 = 0
         var statusCode: Int32 = 0
         var errorCode: UInt32 = 0
+        var contentType=[CChar](repeating:0,count:256)
 
         let succeeded: Int32 = url.withCString { urlPointer in
             method.withCString { methodPointer in
@@ -76,8 +79,9 @@ enum WindowsNativeHTTP {
                                     requestBuffer.bindMemory(to: UInt8.self).baseAddress,
                                     Int32(body.count),
                                     connectMilliseconds, sendMilliseconds, receiveMilliseconds,
+                                    useSystemProxy && !["127.0.0.1", "localhost", "::1"].contains(URL(string:url)?.host ?? "") ? 1 : 0,
                                     output, Int32(maximumResponseBytes),
-                                    &responseLength, &statusCode, &errorCode
+                                    &responseLength, &statusCode, &contentType, 256, &errorCode
                                 )
                             }
                         }
@@ -85,8 +89,9 @@ enum WindowsNativeHTTP {
                             urlPointer, methodPointer, headerPointer,
                             nil, 0,
                             connectMilliseconds, sendMilliseconds, receiveMilliseconds,
+                                    useSystemProxy && !["127.0.0.1", "localhost", "::1"].contains(URL(string:url)?.host ?? "") ? 1 : 0,
                             output, Int32(maximumResponseBytes),
-                            &responseLength, &statusCode, &errorCode
+                            &responseLength, &statusCode, &contentType, 256, &errorCode
                         )
                     }
                 }
@@ -97,7 +102,8 @@ enum WindowsNativeHTTP {
             throw WindowsNativeHTTPError.invalidRequest
         }
         response.count = Int(responseLength)
-        return WindowsNativeHTTPResponse(statusCode: Int(statusCode), body: response)
+        let mime=String(cString:contentType).split(separator:";",maxSplits:1).first.map{String($0).trimmingCharacters(in:.whitespacesAndNewlines).lowercased()}
+        return WindowsNativeHTTPResponse(statusCode: Int(statusCode), body: response, mimeType: mime)
     }
 
     private static func timeoutMilliseconds(_ seconds: TimeInterval) -> Int32 {

@@ -1,5 +1,5 @@
 import Foundation
-#if canImport(FoundationNetworking)
+#if canImport(FoundationNetworking) && !os(Windows)
 import FoundationNetworking
 #endif
 
@@ -189,7 +189,7 @@ enum CursorDashboardRPC {
     static func read(_ method: String, token: String, machineID: String?, body: Data = Data("{}".utf8)) -> Data? {
         guard ["GetPlanInfo", "GetCurrentPeriodUsage", "GetSandUsageStatus"].contains(method),
               let url = URL(string: "https://api2.cursor.sh/aiserver.v1.DashboardService/" + method) else { return nil }
-        var request = URLRequest(url: url)
+        var request = ProviderHTTPRequest(url: url)
         request.httpMethod = "POST"; request.httpBody = body; request.timeoutInterval = 15
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -201,6 +201,11 @@ enum CursorDashboardRPC {
             request.setValue("sand", forHTTPHeaderField: "x-cursor-client-type")
             request.setValue("prod", forHTTPHeaderField: "x-sand-box-namespace")
         } else { request.setValue("cli", forHTTPHeaderField: "x-cursor-client-type") }
+        #if os(Windows)
+        guard let response = try? WindowsNativeHTTP.request(url: url.absoluteString, method: "POST",
+            headers: request.allHTTPHeaderFields ?? [:], body: body, connectTimeout: 5, sendTimeout: 5, receiveTimeout: 15), response.statusCode == 200 else { return nil }
+        return response.body
+        #else
         let box = ResultBox(), semaphore = DispatchSemaphore(value: 0)
         URLSession.shared.dataTask(with: request) { data, response, _ in
             if (response as? HTTPURLResponse)?.statusCode == 200 { box.store(data) }
@@ -208,6 +213,7 @@ enum CursorDashboardRPC {
         }.resume()
         guard semaphore.wait(timeout: .now() + 16) == .success else { return nil }
         return box.load()
+        #endif
     }
     private final class ResultBox: @unchecked Sendable {
         private let lock = NSLock()

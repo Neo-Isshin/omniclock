@@ -7,6 +7,7 @@ final class WindowsUsageModel: @unchecked Sendable {
     private let lock = NSLock()
     private var storedTools: [ToolUsage]
     private var scanning = false
+    private var nativeBotPresent = GrokBotNativeCredentialStore.shared.hasSignedInInstance
     private var storedNotifications: [TokenClockNotification] = []
 
     private var openclawService = OpenClawUsageService()
@@ -85,7 +86,7 @@ final class WindowsUsageModel: @unchecked Sendable {
         return storedTools
             .filter {
                 enabledTools.contains($0.name)
-                    || ($0.name == "Grok Bot" && enabledTools.contains("Cursor Agent"))
+                    || ($0.name == "Grok Bot" && (enabledTools.contains("Cursor Agent") || nativeBotPresent))
             }
             .sorted {
                 if $0.measurementUnit != $1.measurementUnit {
@@ -108,6 +109,7 @@ final class WindowsUsageModel: @unchecked Sendable {
         lock.unlock()
 
         if shouldReload { recreateServices() }
+        lock.lock();nativeBotPresent=GrokBotNativeCredentialStore.shared.hasSignedInInstance;lock.unlock()
         GenerationSpeedStore.shared.refreshIfDue(enabledTools: enabledTools)
 
         defer {
@@ -129,7 +131,7 @@ final class WindowsUsageModel: @unchecked Sendable {
         if enabledTools.contains("Antigravity") { incremental ? antigravityService.incrementalScan() : antigravityService.fullScan() }
         if enabledTools.contains("Cline") { incremental ? clineService.incrementalScan() : clineService.fullScan() }
         if enabledTools.contains("Continue") { incremental ? continueService.incrementalScan() : continueService.fullScan() }
-        if enabledTools.contains("Cursor Agent") { incremental ? cursorAgentService.incrementalScan() : cursorAgentService.fullScan() }
+        if enabledTools.contains("Cursor Agent") || GrokBotNativeCredentialStore.shared.hasSignedInInstance { incremental ? cursorAgentService.incrementalScan() : cursorAgentService.fullScan() }
         if enabledTools.contains("ZCode") { incremental ? zcodeService.incrementalScan() : zcodeService.fullScan() }
         if !incremental, enabledTools.contains("OpenClaw"),
            UserDefaults.standard.int(for: .openclawHistoryRepairVersion) < 1 {
@@ -250,7 +252,7 @@ final class WindowsUsageModel: @unchecked Sendable {
             let usage = continueService.todayUsage()
             results["Continue"] = snapshot(usage, continueService.recentUsage(minutes: rateWindowMinutes).tokens, continueService.currentHourTokens(), continueService.isActive(), continueService.todaySessions())
         }
-        if enabledTools.contains("Cursor Agent") {
+        if enabledTools.contains("Cursor Agent") || GrokBotNativeCredentialStore.shared.hasSignedInInstance {
             let usage = cursorAgentService.todayUsage()
             results["Cursor Agent"] = snapshot(usage, cursorAgentService.recentUsage(minutes: rateWindowMinutes).tokens, cursorAgentService.currentHourTokens(), cursorAgentService.isActive(), cursorAgentService.todaySessions())
             let bot = cursorAgentService.todayGrokBotUsage()
@@ -357,7 +359,7 @@ final class WindowsUsageModel: @unchecked Sendable {
         if enabledTools.contains("Antigravity") { antigravityService = AntigravityUsageService() }
         if enabledTools.contains("Cline") { clineService = ClineUsageService() }
         if enabledTools.contains("Continue") { continueService = ContinueUsageService() }
-        if enabledTools.contains("Cursor Agent") { cursorAgentService = CursorAgentUsageService(onHourlyUpdate: HourlyHistoryStore.saveCursor) }
+        if enabledTools.contains("Cursor Agent") || GrokBotNativeCredentialStore.shared.hasSignedInInstance { cursorAgentService = CursorAgentUsageService(onHourlyUpdate: HourlyHistoryStore.saveCursor) }
         if enabledTools.contains("ZCode") { zcodeService = ZCodeUsageService() }
         if enabledTools.contains("CodeBuddy CLI") {
             codeBuddyService = CodeBuddyStatsService(endpoint: PathConfig.codeBuddyEndpoint())

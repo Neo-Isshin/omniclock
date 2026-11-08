@@ -1,7 +1,4 @@
 import Foundation
-#if os(macOS)
-import Darwin
-#endif
 
 struct DSHUsageReceipt {
     let id:String,session:String,name:String
@@ -10,19 +7,15 @@ struct DSHUsageReceipt {
     let buckets:ModelBuckets
 }
 
-#if os(macOS)
 private final class BundledZstd: @unchecked Sendable {
     static let shared=BundledZstd()
     typealias Create = @convention(c) () -> OpaquePointer?
     typealias InitStream = @convention(c) (OpaquePointer?) -> UInt
     typealias Decode = @convention(c) (OpaquePointer?,UnsafeMutableRawPointer?,UnsafeMutableRawPointer?) -> UInt
     typealias IsError = @convention(c) (UInt) -> UInt32
-    let handle:UnsafeMutableRawPointer?
     let create:Create?,initialize:InitStream?,decode:Decode?,free:InitStream?,isError:IsError?
     init(){
-        let path=Bundle.module.resourceURL?.appendingPathComponent("DSHDecoder/libzstd.1.dylib").path
-        let h=path.flatMap{dlopen($0,RTLD_NOW|RTLD_LOCAL)};handle=h
-        func load<T>(_ name:String,_ type:T.Type)->T? {guard let h,let p=dlsym(h,name) else{return nil};return unsafeBitCast(p,to:type)}
+        func load<T>(_ name:String,_ type:T.Type)->T? { ZstdLibrary.shared.symbol(name,type) }
         create=load("ZSTD_createDStream",Create.self);initialize=load("ZSTD_initDStream",InitStream.self);decode=load("ZSTD_decompressStream",Decode.self);free=load("ZSTD_freeDStream",InitStream.self);isError=load("ZSTD_isError",IsError.self)
     }
     struct Buffer {var pointer:UnsafeRawPointer?;var size:Int;var pos:Int}
@@ -55,7 +48,6 @@ private final class BundledZstd: @unchecked Sendable {
         return last==0 // Truncated/unverified frames never replace a good snapshot.
     }
 }
-#endif
 
 enum DSHReceiptReader {
     static func generation(_ name:String)->Int? {
@@ -137,11 +129,7 @@ enum DSHReceiptReader {
         }
         let success:Bool
         if path.hasSuffix(".zstd") {
-#if os(macOS)
             success=BundledZstd.shared.read(path,emit:emit)
-#else
-            success=false
-#endif
         } else {
             guard let handle=FileHandle(forReadingAtPath:path) else{return nil};defer{try? handle.close()}
             var okay=true

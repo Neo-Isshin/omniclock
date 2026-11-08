@@ -16,6 +16,9 @@
 #define IDM_SCAN   1002
 #define WM_TRAY    (WM_APP + 1)
 
+#define IDM_FOUNDATION_PUMP 0x7F01
+#define IDM_TRAY_SINGLE 0x7F02
+static DWORD g_pending_tray_click = 0, g_last_double_click = 0;
 static win_callbacks g_cb;
 HWND  g_hwnd = NULL;                  /* non-static: shared with winrender.cpp */
 static UINT  g_taskbar_created = 0;   /* registered msg: explorer restarted */
@@ -309,12 +312,15 @@ static LRESULT CALLBACK wnd_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
          * UpdateLayeredWindow in win_render_clock — do NOT call SetLayeredWindowAttributes
          * (constant-alpha) here, it conflicts with per-pixel-alpha. */
         SetTimer(h, IDM_TICK, 1000, NULL);
+        if (g_cb.on_pump) SetTimer(h, IDM_FOUNDATION_PUMP, 50, NULL);
         if (g_cb.scan_interval_ms > 0)
             SetTimer(h, IDM_SCAN, g_cb.scan_interval_ms, NULL);
         add_tray();
         return 0;
 
     case WM_TIMER:
+        if (wp == IDM_FOUNDATION_PUMP) { if(g_cb.on_pump)g_cb.on_pump(g_cb.ctx); return 0; }
+        if (wp == IDM_TRAY_SINGLE) { KillTimer(h,IDM_TRAY_SINGLE);g_pending_tray_click=0;if(g_cb.on_tray_click)g_cb.on_tray_click(g_cb.ctx,1);return 0; }
         if (wp == IDM_TICK && g_cb.on_tick) g_cb.on_tick(g_cb.ctx);
         else if (wp == IDM_SCAN && g_cb.on_scan) g_cb.on_scan(g_cb.ctx);
         return 0;
@@ -332,8 +338,17 @@ static LRESULT CALLBACK wnd_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         /* NOTIFYICON_VERSION_4: lParam low word = the mouse event, high word = icon id. */
         if (g_cb.on_tray_click) {
             switch (LOWORD(lp)) {
-            case NIN_SELECT:
-            case NIN_KEYSELECT: g_cb.on_tray_click(g_cb.ctx, 1); break;
+            case NIN_SELECT: {
+                DWORD now=GetTickCount(),interval=GetDoubleClickTime();
+                if (g_last_double_click && now-g_last_double_click<=interval) break;
+                if(g_pending_tray_click && now-g_pending_tray_click<=interval){KillTimer(h,IDM_TRAY_SINGLE);g_pending_tray_click=0;g_last_double_click=now;g_cb.on_tray_click(g_cb.ctx,3);}
+                else {g_pending_tray_click=now;SetTimer(h,IDM_TRAY_SINGLE,interval,NULL);}break;
+            }
+            case WM_LBUTTONDBLCLK: {
+                DWORD now=GetTickCount();KillTimer(h,IDM_TRAY_SINGLE);g_pending_tray_click=0;
+                if(!g_last_double_click || now-g_last_double_click>GetDoubleClickTime()){g_last_double_click=now;g_cb.on_tray_click(g_cb.ctx,3);}break;
+            }
+            case NIN_KEYSELECT: g_cb.on_tray_click(g_cb.ctx,1);break;
             case WM_CONTEXTMENU: {
                 show_context_menu(h, -1, -1);
                 break;
@@ -348,6 +363,8 @@ static LRESULT CALLBACK wnd_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
 
     case WM_RBUTTONUP: {
         hide_quota_tooltip();
+        int ring=win_quota_hit_test(GET_X_LPARAM(lp),GET_Y_LPARAM(lp));
+        if(ring>=0 && g_cb.on_quota_click){g_cb.on_quota_click(g_cb.ctx,ring,2);return 0;}
         POINT pt; GetCursorPos(&pt);
         show_context_menu(h, pt.x, pt.y);
         return 0;
@@ -394,7 +411,9 @@ static LRESULT CALLBACK wnd_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         if (g_mouse_down) {
             int clicked = !g_mouse_dragged;
             g_mouse_down = 0; ReleaseCapture();
-            if (clicked && g_cb.on_click) g_cb.on_click(g_cb.ctx, GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+            int ring=win_quota_hit_test(GET_X_LPARAM(lp),GET_Y_LPARAM(lp));
+            if(clicked && ring>=0 && g_cb.on_quota_click)g_cb.on_quota_click(g_cb.ctx,ring,1);
+            else if (clicked && g_cb.on_click) g_cb.on_click(g_cb.ctx, GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
         }
         return 0;
 
@@ -1847,3 +1866,10 @@ void menu_show_at(void *menu, void *hwnd, int x, int y) {
     SetForegroundWindow((HWND)hwnd);
     TrackPopupMenu((HMENU)menu, TPM_LEFTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN, x, y, 0, (HWND)hwnd, NULL);
 }
+
+void win_reveal_once(void *window){HWND h=(HWND)window;ShowWindow(h,SW_SHOWNORMAL);SetWindowPos(h,HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_SHOWWINDOW);SetForegroundWindow(h);}
+int win_dial_obscured(void *window,double threshold){HWND h=(HWND)window;RECT r;if(!IsWindowVisible(h)||!GetWindowRect(h,&r))return 1;int n=0,covered=0;double cx=(r.left+r.right)/2.0,cy=(r.top+r.bottom)/2.0,rad=((r.right-r.left)<(r.bottom-r.top)?(r.right-r.left):(r.bottom-r.top))/2.0-4.0;for(int y=-12;y<=12;y++)for(int x=-12;x<=12;x++){if(x*x+y*y>144)continue;POINT p={(LONG)(cx+x*rad/12),(LONG)(cy+y*rad/12)};HWND top=WindowFromPoint(p);n++;if(top && GetAncestor(top,GA_ROOT)!=h)covered++;}return n>0 && (double)covered/n>=threshold;}
+void win_set_tray_hint(const char*hint){NOTIFYICONDATAW data={0};data.cbSize=sizeof(data);data.hWnd=(HWND)win_self();data.uID=1;data.uFlags=NIF_TIP;MultiByteToWideChar(CP_UTF8,0,hint,-1,data.szTip,128);Shell_NotifyIconW(NIM_MODIFY,&data);}
+
+void win_restart_app(void){wchar_t exe[32768],command[33000];if(!GetModuleFileNameW(NULL,exe,32768))return;_snwprintf_s(command,33000,_TRUNCATE,L"\"%s\" --restart-wait %lu",exe,GetCurrentProcessId());STARTUPINFOW si={sizeof(si)};PROCESS_INFORMATION pi={0};if(CreateProcessW(exe,command,NULL,NULL,FALSE,0,NULL,NULL,&si,&pi)){CloseHandle(pi.hProcess);CloseHandle(pi.hThread);win_quit(win_self());}}
+int win_wait_for_parent(unsigned int pid){if(pid==GetCurrentProcessId())return 0;HANDLE process=OpenProcess(SYNCHRONIZE,FALSE,pid);if(!process)return 1;DWORD result=WaitForSingleObject(process,10000);CloseHandle(process);return result==WAIT_OBJECT_0;}

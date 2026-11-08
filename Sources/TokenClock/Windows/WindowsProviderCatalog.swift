@@ -12,7 +12,7 @@ enum WindowsProviderCatalog {
         case copilot, grok, aider, antigravity, cline, `continue`, cursorAgent
         case zcode
         case kiro, codeBuddy
-        case kiloCode, pi, omp, freebuff, commandCode
+        case kiloCode, pi, omp, freebuff, commandCode, dsh, pig
     }
 
     enum DataKind: String {
@@ -235,7 +235,7 @@ enum WindowsProviderCatalog {
         case .zcode: return PathConfig.zcodeHome()
         case .kiro: return PathConfig.kiroSessionsHome()
         case .codeBuddy: return PathConfig.codeBuddyEndpoint()
-        case .kiloCode, .pi, .omp, .freebuff, .commandCode: return AdditionalHarness(rawValue: id.rawValue)!.roots().first ?? ""
+        case .kiloCode, .pi, .omp, .freebuff, .commandCode, .dsh, .pig: return AdditionalHarness(rawValue: id.rawValue)!.roots().first ?? ""
         }
     }
 
@@ -258,7 +258,7 @@ enum WindowsProviderCatalog {
         case .zcode: PathConfig.setZCodePath(value)
         case .kiro: PathConfig.setKiroSessionsPath(value)
         case .codeBuddy: PathConfig.setCodeBuddyEndpoint(value)
-        case .kiloCode, .pi, .omp, .freebuff, .commandCode:
+        case .kiloCode, .pi, .omp, .freebuff, .commandCode, .dsh, .pig:
             let harness = AdditionalHarness(rawValue: id.rawValue)!
             if value.isEmpty || value == harness.roots(includeCustom: false).first {
                 UserDefaults.standard.removeObject(forKey: harness.pathKey.rawValue)

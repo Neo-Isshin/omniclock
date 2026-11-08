@@ -35,6 +35,8 @@ static int        g_material_face_cache_size = 0;
 static RECT       g_quota_hit_rects[2] = {};
 static char       g_quota_tooltips[2][1024] = {};
 static int        g_quota_hit_count = 0;
+extern "C" int win_quota_hit_test(int x,int y){POINT p={x,y};for(int i=0;i<g_quota_hit_count;i++)if(PtInRect(&g_quota_hit_rects[i],p))return i;return -1;}
+
 
 struct theme_picker_state {
     win_theme themes[9];
@@ -154,6 +156,7 @@ enum tc_color_icon {
     TC_ICON_SATELLITE, TC_ICON_TOOLBOX, TC_ICON_CHAT, TC_ICON_WAVEMARK,
     TC_ICON_NOTE, TC_ICON_LEAF, TC_ICON_BOOK, TC_ICON_ABACUS, TC_ICON_COMPASS,
     TC_ICON_ATOM, TC_ICON_PLANET, TC_ICON_ROTATE, TC_ICON_FACELESS,
+    TC_ICON_PIE, TC_ICON_BISON, TC_ICON_COMMAND, TC_ICON_PIG,
     TC_ICON_BRAND_BASE = 1000, TC_ICON_BRAND_END = 1100
 };
 
@@ -218,6 +221,10 @@ static tc_color_icon color_icon_for(const wchar_t *text) {
     if (wcsstr(text, L"🪐")) return TC_ICON_PLANET;
     if (wcsstr(text, L"🔃")) return TC_ICON_ROTATE;
     if (wcsstr(text, L"😶")) return TC_ICON_FACELESS;
+    if (wcsstr(text, L"🥧")) return TC_ICON_PIE;
+    if (wcsstr(text, L"🦬")) return TC_ICON_BISON;
+    if (wcsstr(text, L"⌘")) return TC_ICON_COMMAND;
+    if (wcsstr(text, L"🐷")) return TC_ICON_PIG;
     if (wcsstr(text, L"❓")) return TC_ICON_QUESTION;
     return TC_ICON_NONE;
 }
@@ -269,6 +276,20 @@ static void draw_color_icon(Gdiplus::Graphics &gfx, tc_color_icon icon,
     };
 
     switch (icon) {
+    case TC_ICON_PIE:
+        ellipse(-10,-6,20,15,180,112,49);ellipse(-10,-9,20,15,237,181,88);
+        line(-6,-5,5,3,255,222,149,2);line(-2,-7,8,0,255,222,149,2);line(-7,0,2,-7,255,222,149,2);line(-3,4,7,-5,255,222,149,2);break;
+    case TC_ICON_BISON:
+        ellipse(-8,-9,16,18,122,78,51);ellipse(-6,1,12,9,156,108,75);
+        line(-7,-5,-11,-10,229,213,173,3);line(7,-5,11,-10,229,213,173,3);
+        ellipse(-5,-3,2,2,35,29,26);ellipse(3,-3,2,2,35,29,26);ellipse(-3,5,1.7f,1.7f,70,45,32);ellipse(2,5,1.7f,1.7f,70,45,32);break;
+    case TC_ICON_COMMAND:{
+        ellipse(-11,-11,22,22,55,123,159);Pen pen(Color(255,245,249,252),1.6f*s);
+        for(int x=-1;x<=1;x+=2)for(int y=-1;y<=1;y+=2)gfx.DrawEllipse(&pen,cx+(x*5-2)*s,cy+(y*5-2)*s,4*s,4*s);
+        line(-5,-3,-5,3,245,249,252,1.5f);line(5,-3,5,3,245,249,252,1.5f);line(-3,-5,3,-5,245,249,252,1.5f);line(-3,5,3,5,245,249,252,1.5f);break;}
+    case TC_ICON_PIG:{
+        PointF ears[]={{-10,-10},{-3,-7},{3,-7},{10,-10},{8,2},{-8,2}};polygon(ears,6,228,134,156);
+        ellipse(-10,-7,20,17,246,163,181);ellipse(-5,1,10,7,222,114,142);ellipse(-6,-2,2,2,70,44,51);ellipse(4,-2,2,2,70,44,51);ellipse(-3,3,1.8f,2,142,67,89);ellipse(1,3,1.8f,2,142,67,89);break;}
     case TC_ICON_SUN:
         ellipse(-5,-5,10,10,255,190,38);
         for (int i=0;i<8;i++) { double a=deg2rad(i*45.0); line((float)cos(a)*7,(float)sin(a)*7,(float)cos(a)*10,(float)sin(a)*10,246,156,22,1.5f); }
@@ -1391,13 +1412,13 @@ void win_render_clock(int w, int h, int hh, int mm, int ss, const win_theme *t, 
     g_quota_hit_count = 0;
     if (ov) {
         auto drawQuotaRing = [&](int index, double ringX, double ringY, double size,
-                                 double outer, double inner, bool hasInner,
+                                 double outer, double inner, bool hasInner, double third, bool hasThird,
                                  unsigned int color, const char *tooltip) {
             const double scale = size / 30.0;
             const double radius = size / 2.0;
             const double outerWidth = (ov->dial_quota_count == 1 ? 3.0 : 2.5) * S;
             const double innerWidth = 1.7 * scale;
-            const double innerRadius = max(2.0 * S, radius - 5.25 * scale);
+            const double innerRadius = max(2.0 * S, radius - 5.0 * S);
             outer = max(0.0, min(100.0, outer));
             inner = max(0.0, min(100.0, inner));
 
@@ -1436,22 +1457,23 @@ void win_render_clock(int w, int h, int hh, int mm, int ss, const win_theme *t, 
                 Gdiplus::Pen innerTrack(cr((t->text_secondary & 0x00ffffffu) | 0x1C000000u),
                                         (Gdiplus::REAL)innerWidth);
                 gfx.DrawEllipse(&innerTrack, innerRect);
-                Gdiplus::Pen innerProgress(cr((color & 0x00ffffffu) | 0x88000000u),
+                Gdiplus::Pen innerProgress(hasThird ? (lightText ? Gdiplus::Color(220,126,198,213) : Gdiplus::Color(220,45,127,153)) : cr((color & 0x00ffffffu) | 0x88000000u),
                                            (Gdiplus::REAL)innerWidth);
                 innerProgress.SetLineCap(Gdiplus::LineCapRound, Gdiplus::LineCapRound, Gdiplus::DashCapRound);
                 if (inner > 0) gfx.DrawArc(&innerProgress, innerRect, -90.0f, (Gdiplus::REAL)(inner * 3.6));
             }
 
-            char digits[16]; sprintf_s(digits, "%.0f", outer);
-            const float fontSize = (float)((ov->dial_quota_count == 1 ? 8.5 : 7.2) * S);
+            if(hasThird){double rr=max(2.0*S,innerRadius-4.5*S);Gdiplus::RectF rect((Gdiplus::REAL)(ringX-rr),(Gdiplus::REAL)(ringY-rr),(Gdiplus::REAL)(rr*2),(Gdiplus::REAL)(rr*2));Gdiplus::Pen track(cr((t->text_secondary&0xffffffu)|0x20000000u),1.5f*S);gfx.DrawEllipse(&track,rect);Gdiplus::Pen arc(lightText?Gdiplus::Color(230,231,193,128):Gdiplus::Color(225,150,103,40),1.6f*S);arc.SetLineCap(Gdiplus::LineCapRound,Gdiplus::LineCapRound,Gdiplus::DashCapRound);if(third>0)gfx.DrawArc(&arc,rect,-90,(Gdiplus::REAL)(max(0.0,min(100.0,third))*3.6));}
+            char digits[16]; if(outer>=99.5)strcpy_s(digits,"F");else sprintf_s(digits, "%.0f", outer);
+            const float fontSize = (float)((ov->dial_quota_count == 1 ? 11.0 : 9.5) * S);
             const double numberWidth = strlen(digits) * fontSize * 0.56;
-            const double percentWidth = fontSize * 0.48;
+            const double percentWidth = outer>=99.5 ? 0 : fontSize * 0.48;
             const double totalWidth = numberWidth + percentWidth;
             unsigned int textColor = outer <= 15 ? 0xFFFF3B30u
                 : (outer <= 35 ? 0xFFFF9500u : t->text_primary);
             textC(digits, ringX - totalWidth / 2 + numberWidth / 2, ringY,
                   fontSize, textColor, true);
-            textC("%", ringX + totalWidth / 2 - percentWidth / 2, ringY,
+            if(outer<99.5)textC("%", ringX + totalWidth / 2 - percentWidth / 2, ringY,
                   fontSize, textColor, false);
 
             if (index < 2) {
@@ -1473,18 +1495,18 @@ void win_render_clock(int w, int h, int hh, int mm, int ss, const win_theme *t, 
         textEmoji(ov->rate, cxd + 32.0 * S, cyd + r * 0.28, (float)(11.0 * S), t->text_secondary);
         textC(ov->tokens,   cxd, cyd + r * 0.40, (float)(20.0 * S), t->text_primary, true);
         if (ov->dial_quota_count == 1) {
-            drawQuotaRing(0, cxd + r * 0.575, cyd, 35.0 * S,
+            drawQuotaRing(0, cxd + r * 0.57, cyd, 42.0 * S,
                           ov->dial_quota_outer1, ov->dial_quota_inner1,
-                          ov->dial_quota_has_inner1 != 0, ov->dial_quota_color1,
+                          ov->dial_quota_has_inner1 != 0, ov->dial_quota_third1, ov->dial_quota_has_third1 != 0, ov->dial_quota_color1,
                           ov->dial_quota_tooltip1);
         } else if (ov->dial_quota_count >= 2) {
-            drawQuotaRing(0, cxd + r * 0.665, cyd - 17.0 * S, 29.0 * S,
+            drawQuotaRing(0, cxd + r * 0.63, cyd - 23.0 * S, 38.0 * S,
                           ov->dial_quota_outer1, ov->dial_quota_inner1,
-                          ov->dial_quota_has_inner1 != 0, ov->dial_quota_color1,
+                          ov->dial_quota_has_inner1 != 0, ov->dial_quota_third1, ov->dial_quota_has_third1 != 0, ov->dial_quota_color1,
                           ov->dial_quota_tooltip1);
-            drawQuotaRing(1, cxd + r * 0.665, cyd + 17.0 * S, 29.0 * S,
+            drawQuotaRing(1, cxd + r * 0.63, cyd + 23.0 * S, 38.0 * S,
                           ov->dial_quota_outer2, ov->dial_quota_inner2,
-                          ov->dial_quota_has_inner2 != 0, ov->dial_quota_color2,
+                          ov->dial_quota_has_inner2 != 0, ov->dial_quota_third2, ov->dial_quota_has_third2 != 0, ov->dial_quota_color2,
                           ov->dial_quota_tooltip2);
         }
         textC(ov->messages, cxd, cyd + r * 0.40 + 18.0 * S, (float)(10.0 * S), t->text_secondary, false);

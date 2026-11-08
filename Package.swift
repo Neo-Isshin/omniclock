@@ -3,6 +3,27 @@ import PackageDescription
 
 #if os(Linux)
 let linuxSources = [
+    "Services/NetworkToolboxPresentation.swift",
+    "Services/ModelIntegrityRuntimeCache.swift",
+    "Services/ModelIntegrityLauncher.swift",
+    "Services/QuickToolPreferences.swift",
+    "Services/ConfigJSON.swift",
+    "Services/NTPClockCheck.swift",
+    "Services/NativeLocalFiles.swift",
+    "Services/NativePresentationState.swift",
+    "Services/LocalToolbox.swift",
+    "Services/LocalToolboxCache.swift",
+    "Services/DoHDiagnostics.swift",
+    "Services/NetworkDiagnostics.swift",
+    "Services/MainlandReachability.swift",
+    "Services/UserContentCenter.swift",
+    "Services/NotebookStore.swift",
+    "Services/AilyreNewsService.swift",
+    "Services/StatusSummarySnapshot.swift",
+    "Models/StatusSummaryLayout.swift",
+    "Models/ClockQuotaLayout.swift",
+    "Models/QuotaCenterLabel.swift",
+    "Models/DialQuotaPager.swift",
     "Services/ProviderHTTPRequest.swift",
     "Services/ClaudeQuotaPayload.swift",
     "Services/ClaudeAppResponseCache.swift",
@@ -119,6 +140,9 @@ let package = Package(
             resources: [
                 .copy("Resources/glass_disc.png"),
                 .copy("Resources/pricing-snapshot.json"),
+                .copy("Resources/AilyreNews"),
+                .copy("Resources/ShareArtwork"),
+                .copy("Resources/model-integrity-worker"),
                 .copy("Resources/DSHDecoder"),
                 .copy("Resources/BrandIcons"),
             ],
@@ -152,13 +176,16 @@ let package = Package(
                 .linkedLibrary("Advapi32"),
                 .linkedLibrary("Ws2_32"),
                 .linkedLibrary("Winhttp"),
+                .linkedLibrary("Crypt32"),
+                .linkedLibrary("Bcrypt"),
                 .linkedLibrary("Comdlg32"),   // ChooseColor（自定义主题取色器）
                 .linkedLibrary("Ole32"),      // SHBrowseForFolder 返回的 PIDL 释放
             ]
         ),
+        .target(name: "WinWebView", dependencies: ["Win32Shim"], path: "Sources/WinWebView", exclude: ["Vendor/LICENSE.txt", "Vendor/SOURCE.json"], publicHeadersPath: "include", linkerSettings: [.linkedLibrary("Ole32"), .linkedLibrary("Shlwapi")]),
         .executableTarget(
             name: "TokenClock",
-            dependencies: ["CSQLite", "Win32Shim"],
+            dependencies: ["CSQLite", "Win32Shim", "WinWebView"],
             path: "Sources/TokenClock",
             exclude: [
                 "AppDelegate.swift",
@@ -176,7 +203,11 @@ let package = Package(
             resources: [
                 .copy("Resources/glass_disc.png"),
                 .copy("Resources/pricing-snapshot.json"),
+                .copy("Resources/AilyreNews"),
+                .copy("Resources/ShareArtwork"),
+                .copy("Resources/model-integrity-worker"),
                 .copy("Resources/DSHDecoder"),
+                .copy("Resources/WindowsUI"),
                 .copy("Resources/BrandIcons"),
             ],
             swiftSettings: [.unsafeFlags(["-parse-as-library"])],
@@ -206,6 +237,9 @@ let package = Package(
             resources: [
                 .copy("Resources/glass_disc.png"),
                 .copy("Resources/pricing-snapshot.json"),
+                .copy("Resources/AilyreNews"),
+                .copy("Resources/ShareArtwork"),
+                .copy("Resources/model-integrity-worker"),
                 .copy("Resources/DSHDecoder"),
                 .copy("Resources/BrandIcons"),
             ],

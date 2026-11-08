@@ -45,6 +45,8 @@ typedef struct {
   int    initial_y;
   const wchar_t *class_name;
   const wchar_t *window_title;
+  win_on_tick_t on_pump;
+  win_on_click_t on_quota_click;
 } win_callbacks;
 
 /* Run the app (blocks on the message loop). Returns 0 on clean exit. */
@@ -52,6 +54,12 @@ int win_run(const win_callbacks *cb);
 
 /* --- window control (Swift calls these) --- */
 void   win_invalidate(void *hwnd);
+void win_reveal_once(void *hwnd);
+void win_restart_app(void);
+int win_wait_for_parent(unsigned int pid);
+int win_dial_obscured(void *hwnd, double threshold);
+void win_set_tray_hint(const char *hint);
+int win_quota_hit_test(int x, int y);
 void   win_set_opacity(void *hwnd, double alpha);
 void   win_resize(void *hwnd, int w, int h);
 void   win_get_pos(void *hwnd, int *x, int *y);
@@ -59,6 +67,9 @@ void   win_set_pos(void *hwnd, int x, int y);
 void   win_show(void *hwnd, int show);
 void   win_quit(void *hwnd);
 void   win_set_dpi_aware(void);
+int win_system_timezone(char *output,int capacity);
+int win_system_timezone_offset(void);
+void win_set_process_timezone(const char *name);
 void   win_set_topmost(void *hwnd, int topmost);   /* HWND_TOPMOST / HWND_NOTOPMOST */
 void  *win_self(void);              /* the main window HWND (for invalidate/resize/opacity from Swift) */
 void  *win_detail_window(void);     /* non-layered Acrylic sibling; NULL while collapsed */
@@ -106,6 +117,10 @@ typedef struct {
   int layered_window_rejected;
   int32_t last_hresult;
 } win_fluent_diagnostics;
+
+int win_normalize_ip_address(const char *input, char *output, int capacity);
+int win_decrypt_electron_secret(const unsigned char *cipher, int length, const unsigned char *wrapped_key, int key_length, unsigned char *output, int capacity, int *written);
+int win_replace_local_file(const wchar_t *source, const wchar_t *destination);
 
 int          win_fluent_apply(void *hwnd, int material);
 void         win_fluent_forget(void *hwnd);
@@ -232,6 +247,8 @@ typedef struct {
     int dial_quota_count;        /* 0...2 provider indicators */
     double dial_quota_outer1, dial_quota_inner1;
     double dial_quota_outer2, dial_quota_inner2;
+    double dial_quota_third1, dial_quota_third2;
+    int dial_quota_has_third1, dial_quota_has_third2;
     int dial_quota_has_inner1, dial_quota_has_inner2;
     unsigned int dial_quota_color1, dial_quota_color2;
     const char *dial_quota_tooltip1;
@@ -296,10 +313,12 @@ int win_native_http_request(const char *url_utf8,
                             int connect_timeout_ms,
                             int send_timeout_ms,
                             int receive_timeout_ms,
+                            int use_system_proxy,
                             unsigned char *response_body,
                             int response_capacity,
                             int *out_response_length,
                             int *out_status_code,
+                            char *out_content_type, int content_type_capacity,
                             unsigned long *out_error);
 
 /* --- loopback HTTP API server (implemented in winhttp.c, Winsock) ---
@@ -328,3 +347,5 @@ int win_codebuddy_http_get(unsigned short port, int route, unsigned char *out,
 }
 #endif
 #endif
+
+int win_ntp_exchange(const unsigned char *request, int request_size, unsigned char *out, int capacity, int *received);

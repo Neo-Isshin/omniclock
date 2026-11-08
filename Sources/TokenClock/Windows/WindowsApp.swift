@@ -195,19 +195,19 @@ final class WindowsApp: @unchecked Sendable {
                 providers.append(provider)
             }
         }
-        if defaults.object(forKey: SettingsKey.dialQuotaProviders.rawValue) != nil {
-            return Array(providers.prefix(2))
+        if WindowsPreferences.shared.object(forKey: SettingsKey.dialQuotaProviders.rawValue) != nil {
+            return Array(providers.prefix(DialQuotaPager.maximumSelection))
         }
         if let raw = defaults.string(for: .dialQuotaProvider),
            let provider = SubscriptionProvider(rawValue: raw) {
             providers = [provider]
         }
-        return Array(providers.prefix(2))
+        return Array(providers.prefix(DialQuotaPager.maximumSelection))
     }()
     private var shouldAutomaticallySelectDialQuotaProvider: Bool = {
         let defaults = UserDefaults.standard
-        return defaults.object(forKey: SettingsKey.dialQuotaProviders.rawValue) == nil
-            && defaults.object(forKey: SettingsKey.dialQuotaProvider.rawValue) == nil
+        return WindowsPreferences.shared.object(forKey: SettingsKey.dialQuotaProviders.rawValue) == nil
+            && WindowsPreferences.shared.object(forKey: SettingsKey.dialQuotaProvider.rawValue) == nil
     }()
     private var quotaProviderOrder: [SubscriptionProvider] = {
         let saved = UserDefaults.standard.stringArray(for: .subscriptionQuotaOrder) ?? []
@@ -256,6 +256,8 @@ final class WindowsApp: @unchecked Sendable {
         cb.on_destroy = appDestroy
         cb.on_click = appClick
         cb.on_scroll = appScroll
+        cb.on_pump = appPump
+        cb.on_quota_click = appQuotaClick
         cb.scan_interval_ms = Int32(AppConfig.Timers.dataScan * 1000)   // 30s 数据扫描
         cb.width = currentHostWidth
         cb.height = currentHeight
@@ -275,9 +277,8 @@ final class WindowsApp: @unchecked Sendable {
             api?.start(port: apiPort)
         }
         scheduleScan(incremental: false)
-        if !dialQuotaProviders.isEmpty {
-            refreshSubscriptionQuotas(force: false, providers: Set(dialQuotaProviders))
-        }
+        if shouldAutomaticallySelectDialQuotaProvider {refreshSubscriptionQuotas(force:false)}
+        else if !dialQuotaProviders.isEmpty {refreshSubscriptionQuotas(force:false,providers:Set(dialQuotaProviders))}
 
         // 天气：监听 .weatherUpdated → 格式化暂存，render 时叠到盘面顶部；按选定城市抓取
         weatherObserver = NotificationCenter.default.addObserver(forName: .weatherUpdated, object: nil, queue: nil) { [weak self] note in
@@ -319,14 +320,163 @@ final class WindowsApp: @unchecked Sendable {
 
     /// 渲染一帧：忠实 classic 表盘 + 叠加真实用量（日期 / 天气 / token 计数 / 消息数 / 活跃工具）。
     /// 展开态额外在盘面下方列工具明细，并把窗口高度撑开。表盘配色/几何由 winrender.cpp 内置并按尺寸缩放。
+    private var shuttingDown=false
+    private var toolboxes: WindowsToolboxes?
+    private var quotaPager = DialQuotaPager()
+    private var quotaPageDate = Date()
+    private var temporaryReveal = false
+    private var contentNotifications: [TokenClockNotification] = []
+
+    private func ensureToolboxes() {
+        guard toolboxes == nil else { return }
+        MainActor.assumeIsolated {
+            let ui=WindowsToolboxes()
+            ui.stateProvider={ [weak self] in self?.toolboxPayload() ?? [:] }
+            ui.navigate={ [weak self] command,data in self?.toolboxAction(command,data) }
+            ui.onContentChange={ [weak self,weak ui] in
+                guard let self,let ui else{return};self.contentNotifications=ui.content.notices().filter{ui.content.preferences.allows($0)}
+            }
+            toolboxes=ui;ui.start()
+        }
+    }
+    private func showToolbox(_ name: String) {
+        ensureToolboxes()
+        if name=="summary" { refreshSubscriptionQuotas(force:false) }
+        MainActor.assumeIsolated { toolboxes?.show(name) }
+    }
+    fileprivate func pumpFoundation() { _ = RunLoop.main.run(mode:.default,before:Date()) }
+    private func summaryQuotas() -> [StatusSummaryQuota] {
+        StatusSummaryQuotas.indicators(records:subscriptionAccountStore.records(),activeIDs:activeSubscriptionAccountIDs,
+            freshGroups:Dictionary(uniqueKeysWithValues:SubscriptionProvider.allCases.map{($0,freshDialQuotaGroups(for:$0))}))
+    }
+    private var presentationNotifications: [TokenClockNotification] {
+        let notices=(model.notifications+contentNotifications).sorted{$0.createdAt>$1.createdAt}
+        return MainActor.assumeIsolated {notices.filter{toolboxes?.content.preferences.allows($0) ?? true}}
+    }
+    private static func parsedTextColor(_ value: String?) -> UInt32? {
+        guard let text=value, text.hasPrefix("#"),text.count==7,let rgb=UInt32(text.dropFirst(),radix:16) else{return nil}
+        return 0xff000000|rgb
+    }
+    private var effectiveDialTheme: win_theme {
+        var theme=selectedTheme.winTheme
+        let mode=UserDefaults.standard.int(for:.dialTextMode)
+        let color:UInt32?=mode==1 ? 0xffffffff : mode==2 ? 0xff000000 : mode==3 ? Self.parsedTextColor(UserDefaults.standard.string(for:.dialTextColor)) : nil
+        if let color {theme.text_primary=color;theme.text_secondary=(color&0xffffff)|0xb8000000;theme.number_color=color}
+        return theme
+    }
+    private func chooseTextColor(dial: Bool) {
+        var color=dial ? effectiveDialTheme.text_primary : Self.parsedTextColor(UserDefaults.standard.string(for:.dropdownTextColor)) ?? selectedTheme.winTheme.dd_text
+        guard win_pick_color(color,&color) != 0 else{return}
+        let hex=String(format:"#%06X",color&0xffffff)
+        UserDefaults.standard.setString(hex,for:dial ? .dialTextColor:.dropdownTextColor)
+        if dial {UserDefaults.standard.setInt(3,for:.dialTextMode)}else{UserDefaults.standard.remove(.quickContrastPreset)}
+        render()
+    }
+    private func toolboxPayload() -> [String:Any] {
+        let tools=model.tools
+        let usable=tools.filter{$0.measurementUnit == .tokens && $0.measurementScope == .today && ($0.todayTokens>0 || $0.todayMessages>0)}.sorted{$0.todayTokens>$1.todayTokens}
+        let grand=max(1,UsageAggregator.totalTokens(usable,includingCacheRead:usageIncludesCache))
+        var rows:[[String:Any]]=[]
+        func row(name:String,iconName:String,tokens:Int,cache:Int,messages:Int,cost:CostEstimate,speed:GenerationSpeed,key:String?=nil,child:Bool=false) -> [String:Any] {
+            let displayed=tokens+(usageIncludesCache ? cache:0)
+            let share=String(format:"%.1f%%",Double(displayed)*100/Double(grand))
+            let hint="t/s: \(speed.formatted)\nTTFT: \(speed.formattedTTFT)\n" + toolboxText("已完成请求：", "Completed requests: ") + String(speed.sampleCount)
+                + (speed.lastCompletedAt.map{ "\n"+toolboxText("最近完成：", "Last completed: ")+$0.formatted(date:.omitted,time:.standard) } ?? "")
+            let icon=BrandIconStyle.current == .official ? BrandIconCatalog.key(for:iconName) ?? "" : ""
+            let emoji=icon.isEmpty && !iconName.isEmpty ? WindowsProviderCatalog.entry(displayName:iconName)?.emoji ?? ModelEmoji.emoji(for:iconName) : ""
+            return ["label":name,"icon":icon,"emoji":emoji, "key":key ?? "","child":child,"expanded":key.map{expandedDetailKeys.contains($0)} ?? false,
+                "value":valueMode == .tokens ? TokenFormat.compact(displayed):CostFormat.estimate(cost),"messages":String(messages),"metric":valueMode == .tokens ? share:speed.formatted,"hint":valueMode == .tokens ? toolboxText("占当前展示用量的比例", "Share of displayed usage"):hint]
+        }
+        if groupingMode == .model {
+            for group in UsageAggregator.groupedByModel(usable,unknownLabel:L10n.shared.tr("detail.unknownModel")) {
+                let key="model:\(group.id)"
+                rows.append(row(name:group.name,iconName:group.name,tokens:group.totalTokens,cache:group.totalCacheReadTokens,messages:group.totalMessages,cost:group.totalCost,speed:group.generationSpeed,key:key))
+                if expandedDetailKeys.contains(key){for contribution in group.contributions {
+                    rows.append(row(name:contribution.tool,iconName:contribution.tool,tokens:contribution.tokens,cache:contribution.cacheReadTokens,messages:contribution.messages,cost:contribution.cost,speed:GenerationSpeedStore.shared.summary(model:group.name,providers:[contribution.tool]),child:true))
+                }}
+            }
+        } else {
+            for tool in usable {
+                let key="tool:\(tool.id)"
+                rows.append(row(name:tool.name,iconName:tool.name,tokens:tool.todayTokens,cache:tool.todayCacheReadTokens,messages:tool.todayMessages,cost:tool.todayCost,speed:GenerationSpeedStore.shared.summary(provider:tool.name),key:key))
+                if expandedDetailKeys.contains(key) {for session in tool.sessions.filter({$0.todayTokens>0 || $0.todayMessages>0}).sorted(by:{$0.todayTokens>$1.todayTokens}) {
+                    let speed=session.model.map{GenerationSpeedStore.shared.summary(model:$0,providers:[tool.name])} ?? GenerationSpeed()
+                    rows.append(row(name:session.displayName+(session.source.map{" · "+$0} ?? ""),iconName:"",tokens:session.todayTokens,cache:session.cacheReadTokens,messages:session.todayMessages,cost:session.todayCost,speed:speed,child:true))
+                }}
+            }
+        }
+        for tool in tools where tool.measurementUnit != .tokens || tool.measurementScope != .today {
+            rows.append(["label":tool.name,"icon":BrandIconCatalog.key(for:tool.name) ?? "","key":"","child":false,"expanded":false,"value":tool.measurementUnit == .requests ? "\(tool.value) "+L10n.shared.tr("harness.responses") : L10n.shared.tr("detail.statisticsUnavailable"),"messages":String(tool.todayMessages),"metric":"—","hint":L10n.shared.tr("detail.currentSession")])
+        }
+        let weatherInfo=weatherLock.withLock{self.weatherInfo};let forecast=forecastOverlay(weatherInfo:weatherInfo)
+        let hours=forecast.slots.components(separatedBy:"\t").compactMap { slot -> [String:String]? in
+            let parts=slot.components(separatedBy:"|");guard parts.count>=3 else{return nil};return ["hour":parts[0],"emoji":parts[1],"temperature":parts[2]]
+        }
+        let color=UserDefaults.standard.string(for:.dropdownTextColor) ?? (quickContrastPreset==1 ? "#ffffff" : quickContrastPreset==2 ? "#161a22" : quickContrastPreset==3 ? "#ffd60a":"")
+        let notifications=presentationNotifications
+        return ["detail":["rows":rows,"group":groupingMode == .model ? "model":"session","cost":valueMode == .costPercent,"color":color,"cache":usageIncludesCache,"weather":["title":forecast.summary.components(separatedBy:"|").first ?? "","hours":hours]],
+                "notices":notifications.map{["id":$0.id.uuidString,"title":$0.title,"message":$0.message,"category":NotificationCategory.category(for:$0).rawValue,"date":$0.createdAt.formatted(date:.abbreviated,time:.shortened)]},
+                "newsUnread":contentNotifications.contains{$0.kind == .news && !$0.isRead},"unread":notifications.filter{!$0.isRead}.count]
+    }
+    private func toolboxAction(_ command: String, _ data: [String:Any]) {
+        switch command {
+        case "quota":openSubscriptionQuota()
+        case "history":openUsageOverview()
+        case "group":UserDefaults.standard.setInt(data["value"] as? String == "model" ? 1:0,for:.dropdownGrouping);expandedDetailKeys.removeAll()
+        case "cache":UserDefaults.standard.setBool(!usageIncludesCache,for:.usageIncludesCacheRead)
+        case "textColor":cycleQuickContrast()
+        case "valueMode":setValueMode(valueMode.next)
+        case "expand":if let key=data["key"] as? String,key.count<=300 { if expandedDetailKeys.contains(key){expandedDetailKeys.remove(key)}else{expandedDetailKeys.insert(key)} }
+        case "notices":
+            model.markNotificationsRead()
+            MainActor.assumeIsolated{if let ui=toolboxes{ui.content.markRead(ui.content.notices());ui.show("notices")}}
+        case "noticeOpen":
+            let notices=model.notifications+contentNotifications
+            guard let id=data["id"] as? String,let notice=notices.first(where:{$0.id.uuidString==id}) else{return}
+            if let route=notice.route { openUsageOverview(route:route) }
+            else if let url=notice.releaseURL { win_open_url(url.absoluteString) }
+            else if let entry=notice.notebookEntryID { MainActor.assumeIsolated{toolboxes?.handle(key:"notebook",message:["command":"noteSelect","data":["id":entry.uuidString]])} }
+            else if notice.newsItemID != nil { showToolbox("news") }
+            else if notice.subscriptionAccountID != nil {openSubscriptionQuota()}
+        case "closed":if data["key"] as? String == "details"{detailsVisible=false}
+        default:break
+        }
+        render()
+    }
+    fileprivate func quotaClick(index: Int32, button: Int32) {
+        if button==2 {openSubscriptionQuota();return}
+        quotaPager.advance(count:dialQuotaIndicators().count);quotaPageDate=Date();render()
+    }
+
+    private struct QuotaObservation: Equatable {
+        let codex: CodexQuotaSnapshot
+        let claude: ClaudeQuotaSnapshot
+        let antigravity, cursor, grokBot, zhipu: ProviderQuotaSnapshot
+    }
+    private var lastQuotaObservation: QuotaObservation?
+    private func reconcileQuotaAccounts() {
+        let value=QuotaObservation(codex:codexQuotaState.snapshot(),claude:claudeQuotaState.snapshot(),antigravity:antigravityQuotaState.snapshot(),cursor:cursorQuotaState.snapshot(),grokBot:grokBotQuotaState.snapshot(),zhipu:zhipuQuotaState.snapshot())
+        guard value != lastQuotaObservation else{return}
+        lastQuotaObservation=value
+        syncSubscriptionAccounts(codex:value.codex,claude:value.claude,antigravity:value.antigravity,cursor:value.cursor,grokBot:value.grokBot,zhipu:value.zhipu)
+    }
+    private var lastQuotaRefresh = Date.distantPast
     private var lastBillingFetch = Date.distantPast
     func render() {
+        guard !shuttingDown else{return}
+        ensureToolboxes()
         if let dialog = quotaDlg {
             let current = model.tools.first { $0.name == "Codex" }?.costModes
             if current != lastQuotaCostModes {
                 lastQuotaCostModes = current
                 dlg_post_command(dialog, 980)
             }
+        }
+        if Date().timeIntervalSince(lastQuotaRefresh)>=180 {
+            lastQuotaRefresh=Date()
+            let summaryOpen=MainActor.assumeIsolated{toolboxes?.isVisible("summary") ?? false}
+            let selected=summaryOpen || shouldAutomaticallySelectDialQuotaProvider ? Set(SubscriptionProvider.allCases):Set(dialQuotaProviders)
+            if !selected.isEmpty {refreshSubscriptionQuotas(force:false,providers:selected)}
         }
         if didStartup, Date().timeIntervalSince(lastBillingFetch) > 6 * 3600 {
             lastBillingFetch = Date()
@@ -335,6 +485,8 @@ final class WindowsApp: @unchecked Sendable {
         if !didStartup {
             didStartup = true
             applyStartupAppearance()
+            win_set_tray_hint(toolboxText("OmniClock · 单击今日总结 · 双击显示/隐藏表盘", "OmniClock · Click for summary · Double-click to show/hide the clock"))
+            if detailsVisible { showToolbox("details") }
         }
         if let output = pendingShareOutputPath {
             pendingShareOutputPath = nil
@@ -365,7 +517,12 @@ final class WindowsApp: @unchecked Sendable {
         let forecast = detailsVisible
             ? forecastOverlay(weatherInfo: weatherSnapshot.1)
             : (summary: "", slots: "", visible: false)
-        let quotaIndicators = dialQuotaIndicators()
+        reconcileQuotaAccounts()
+        selectAutomaticDialQuotaProviderIfReady()
+        let allQuotaIndicators = dialQuotaIndicators()
+        if Date().timeIntervalSince(quotaPageDate)>=DialQuotaPager.interval {quotaPager.advance(count:allQuotaIndicators.count);quotaPageDate=Date()}
+        let quotaIndicators = quotaPager.visible(from:allQuotaIndicators)
+        MainActor.assumeIsolated { toolboxes?.update(tools:tools,quotas:summaryQuotas());toolboxes?.setDetailOpacity(windowOpacity) }
 
         // 固定高详情卡只渲染当前可见页；滚轮改变起始行。展开父项不会再改变窗口高度，
         // 也不会推动表盘。天气趋势占 76pt 时少显示两行，剩余行可继续滚动查看。
@@ -404,7 +561,7 @@ final class WindowsApp: @unchecked Sendable {
             resizeHostKeepingCenter(width: newWidth, height: newHeight)
         }
 
-        var wt = selectedTheme.winTheme
+        var wt = effectiveDialTheme
         let quotaTooltip1 = quotaIndicators.first.map(dialQuotaTooltip) ?? ""
         let quotaTooltip2 = quotaIndicators.dropFirst().first.map(dialQuotaTooltip) ?? ""
         Self.withCStrings([date, weather, todayLabel, tokens, messages, tool1, tool2, rate, dialImagePath,
@@ -425,18 +582,22 @@ final class WindowsApp: @unchecked Sendable {
             ov.detail_header = ptrs[11]
             ov.forecast_summary = ptrs[12]
             ov.forecast_slots = ptrs[13]
-            ov.notification_unread_count = Int32(model.unreadNotificationCount)
+            ov.notification_unread_count = Int32(presentationNotifications.filter{!$0.isRead}.count)
             ov.dial_quota_count = Int32(quotaIndicators.count)
             if let first = quotaIndicators.first {
                 ov.dial_quota_outer1 = first.outerRemainingPercent
                 ov.dial_quota_inner1 = first.innerRemainingPercent ?? 0
                 ov.dial_quota_has_inner1 = first.innerRemainingPercent == nil ? 0 : 1
+                ov.dial_quota_third1 = first.thirdRemainingPercent ?? 0
+                ov.dial_quota_has_third1 = first.thirdRemainingPercent == nil ? 0 : 1
                 ov.dial_quota_color1 = dialQuotaColor(first.provider, themeTextColor: wt.text_primary)
             }
             if let second = quotaIndicators.dropFirst().first {
                 ov.dial_quota_outer2 = second.outerRemainingPercent
                 ov.dial_quota_inner2 = second.innerRemainingPercent ?? 0
                 ov.dial_quota_has_inner2 = second.innerRemainingPercent == nil ? 0 : 1
+                ov.dial_quota_third2 = second.thirdRemainingPercent ?? 0
+                ov.dial_quota_has_third2 = second.thirdRemainingPercent == nil ? 0 : 1
                 ov.dial_quota_color2 = dialQuotaColor(second.provider, themeTextColor: wt.text_primary)
             }
             ov.dial_quota_tooltip1 = ptrs[14]
@@ -446,7 +607,7 @@ final class WindowsApp: @unchecked Sendable {
             ov.detail_grouping = groupingMode == .model ? 1 : 0
             ov.detail_percentage = valueMode == .costPercent ? 1 : 0
             ov.detail_includes_cache = usageIncludesCache ? 1 : 0
-            ov.detail_visible = detailsVisible ? 1 : 0
+            ov.detail_visible = 0
             ov.detail_quota_visible = 0
             ov.clock_diameter = dialHeight
             ov.detail_card_width = 320
@@ -608,6 +769,7 @@ final class WindowsApp: @unchecked Sendable {
     }
 
     private func cycleQuickContrast() {
+        UserDefaults.standard.remove(.dropdownTextColor)
         let next = quickContrastPreset >= 3 ? 1 : quickContrastPreset + 1
         UserDefaults.standard.setInt(next, for: .quickContrastPreset)
     }
@@ -633,6 +795,10 @@ final class WindowsApp: @unchecked Sendable {
         force: Bool,
         providers: Set<SubscriptionProvider> = Set(SubscriptionProvider.allCases)
     ) {
+        if ProcessInfo.processInfo.environment["TC_QUOTA_MOCK"] == "accounts" {
+            let q=quotaAccountMockSnapshots();codexQuotaState.finish(q.0);claudeQuotaState.finish(q.1);antigravityQuotaState.finish(q.2);cursorQuotaState.finish(q.3);grokBotQuotaState.finish(q.4);zhipuQuotaState.finish(q.5)
+            syncSubscriptionAccounts(codex:q.0,claude:q.1,antigravity:q.2,cursor:q.3,grokBot:q.4,zhipu:q.5);return
+        }
         if providers.contains(.codex), codexQuotaState.begin(force: force) {
             let service = codexQuotaService
             let state = codexQuotaState
@@ -858,27 +1024,24 @@ final class WindowsApp: @unchecked Sendable {
             self?.model.scan(incremental: incremental)
         }
         scanCount &+= 1
-        if scanCount % 10 == 0, !dialQuotaProviders.isEmpty {
-            refreshSubscriptionQuotas(force: false, providers: Set(dialQuotaProviders))
-        }
+
         if scanCount % 20 == 0 { WindowsWeather.refresh(forCity: selectedCity) }   // 每 ~10 分钟刷新一次天气
     }
 
     func trayClick(button: Int32) {
-        // Toggle the entire clock, matching the macOS status item.
-        if button == 1 {
-            let now = Date()
-            guard now.timeIntervalSince(lastTrayToggle) > 0.35 else { return }
-            lastTrayToggle = now
-            setMainVisible(!mainVisible)
+        if button==1 {showToolbox("summary");return}
+        if button==3 {
+            let obscured=win_dial_obscured(win_self(),0.85) != 0
+            MainActor.assumeIsolated {toolboxes?.hide("summary")}
+            if !mainVisible || obscured {setMainVisible(true);temporaryReveal=true;win_reveal_once(win_self())}
+            else {setMainVisible(false);temporaryReveal=false}
         }
     }
-
     private func setMainVisible(_ visible: Bool) {
-        guard mainVisible != visible else { return }
-        mainVisible = visible
-        win_show(win_self(), visible ? 1 : 0)
-        if visible { render() }
+        if visible {MainActor.assumeIsolated{toolboxes?.hide("summary")}}
+        mainVisible=visible;win_show(win_self(),visible ? 1:0)
+        if visible {win_reveal_once(win_self());render()}
+        else {MainActor.assumeIsolated{toolboxes?.hide("details")};detailsVisible=false}
     }
 
     /// Main-window click callback. The upper clock toggles the dropdown; controls and parent
@@ -957,7 +1120,7 @@ final class WindowsApp: @unchecked Sendable {
         guard now.timeIntervalSince(lastTrayToggle) > 0.35 else { return }
         lastTrayToggle = now
         detailsVisible.toggle()
-        if !detailsVisible { detailScrollRow = 0 }
+        if detailsVisible {showToolbox("details")} else {MainActor.assumeIsolated{toolboxes?.hide("details")};detailScrollRow=0}
         render()
     }
 
@@ -970,6 +1133,25 @@ final class WindowsApp: @unchecked Sendable {
               let generalMenu = menu_create() else { return }
         let L = L10n.shared
 
+        if let toolboxMenu=menu_create(){
+            for (id,label) in [(3000,toolboxText("今日总结","Today summary")),(3001,toolboxText("网络工具箱","Network Toolbox")),(3002,toolboxText("本地工具箱","Local Tools")),(3003,toolboxText("行事本","Notebook")),(3004,toolboxText("快捷按钮","Quick actions")),(3008,L.tr("quota.windowTitle")),(3009,toolboxText("模型检测","Model Detect")),(3010,toolboxText("AI 速递","AI digest"))] {addMenuItem(toolboxMenu,Int32(id),label,false)}
+            addSubmenu(menu,toolboxText("工具箱","Toolboxes"),toolboxMenu)
+        }
+        if let colors=menu_create(){
+            addMenuItem(colors,3014,toolboxText("跟随表盘","Use theme"),UserDefaults.standard.int(for:.dialTextMode)==0)
+            addMenuItem(colors,3015,toolboxText("白色","White"),UserDefaults.standard.int(for:.dialTextMode)==1)
+            addMenuItem(colors,3016,toolboxText("黑色","Black"),UserDefaults.standard.int(for:.dialTextMode)==2)
+            addMenuItem(colors,3011,toolboxText("自定义…","Custom…"),UserDefaults.standard.int(for:.dialTextMode)==3)
+            addSubmenu(menu,toolboxText("表盘文字颜色","Dial Text Color"),colors)
+        }
+        if let colors=menu_create(){
+            addMenuItem(colors,3017,toolboxText("默认颜色","Default color"),UserDefaults.standard.string(for:.dropdownTextColor)==nil && quickContrastPreset==0)
+            for (id,label) in [(3018,toolboxText("白色","White")),(3019,toolboxText("黑色","Black")),(3020,toolboxText("黄色","Yellow")),(3012,toolboxText("自定义…","Custom…"))]{addMenuItem(colors,Int32(id),label,false)}
+            addSubmenu(menu,toolboxText("下拉面板文字颜色","Detail Text Color"),colors)
+        }
+        addMenuItem(generalMenu,3005,toolboxText("通知设置…","Notification settings…"),false)
+        addMenuItem(generalMenu,3006,toolboxText("检查更新…","Check for updates…"),false)
+        addMenuItem(generalMenu,3007,toolboxText("重启","Restart"),false)
         // macOS normal 使用独立 3x3 visual picker；菜单项直接打开同构的缩略图面板。
         addMenuItem(appearanceMenu, cmdThemePicker, L.tr("menu.clockFace"), false)
         if let icons = menu_create() {
@@ -1045,7 +1227,7 @@ final class WindowsApp: @unchecked Sendable {
             addSubmenu(generalMenu, L.tr("menu.language"), lm)
         }
         addMenuItem(generalMenu, cmdRefresh, L.language == .en ? "Refresh Now" : "立即刷新", false)
-        let unread = model.unreadNotificationCount
+        let unread = presentationNotifications.filter{!$0.isRead}.count
         if unread > 0 {
             addMenuItem(generalMenu, cmdNotifications, "🔔 \(L.tr("notification.title")) (\(unread))", false)
         }
@@ -1058,14 +1240,30 @@ final class WindowsApp: @unchecked Sendable {
         addSeparator(menu)
         addMenuItem(generalMenu, cmdLaunch, L.tr("menu.launchAtLogin"), launchAtLogin)
         addMenuItem(menu, cmdAbout, L.tr("menu.about"), false)
-        addMenuItem(menu, cmdVisibility, L.tr(mainVisible ? "menu.hide" : "menu.show"), false)
+        addMenuItem(menu, cmdVisibility, L.tr(mainVisible && win_dial_obscured(win_self(),0.85)==0 ? "menu.hide" : "menu.show"), false)
         addMenuItem(menu, cmdQuit, L.tr("menu.quit"), false)
     }
 
     func menuCmd(cmd: Int32) {
         switch cmd {
+        case 3000:showToolbox("summary")
+        case 3001:showToolbox("network")
+        case 3002:showToolbox("local")
+        case 3003:showToolbox("notebook")
+        case 3004:showToolbox("quick")
+        case 3005:showToolbox("notifications")
+        case 3006:ReleaseUpdateService.shared.checkNow {result in Task{@MainActor in switch result{case .available(_,let url):win_open_url(url.absoluteString);case .current:win_message_box("OmniClock",toolboxText("当前已是最新版本。","You’re up to date."));case .unavailable:win_message_box("OmniClock",toolboxText("暂时无法检查更新，请稍后重试。","Could not check for updates. Please try again later."))}}}
+        case 3007:win_restart_app()
+        case 3008:openSubscriptionQuota()
+        case 3009:showToolbox("model")
+        case 3010:showToolbox("news")
+        case 3011:chooseTextColor(dial:true)
+        case 3012:chooseTextColor(dial:false)
+        case 3014...3016:UserDefaults.standard.setInt(Int(cmd-3014),for:.dialTextMode);render()
+        case 3017:UserDefaults.standard.remove(.dropdownTextColor);UserDefaults.standard.remove(.quickContrastPreset);render()
+        case 3018...3020:UserDefaults.standard.remove(.dropdownTextColor);UserDefaults.standard.setInt(Int(cmd-3017),for:.quickContrastPreset);render()
         case cmdQuit:       win_quit(win_self())
-        case cmdVisibility: setMainVisible(!mainVisible)
+        case cmdVisibility: setMainVisible(!mainVisible || win_dial_obscured(win_self(),0.85) != 0)
         case cmdTopmost:
             alwaysOnTop.toggle()
             win_set_topmost(win_self(), alwaysOnTop ? 1 : 0)
@@ -1080,8 +1278,8 @@ final class WindowsApp: @unchecked Sendable {
         case cmdAbout:      showAbout()
         case cmdSettings:   openSettings()
         case cmdOverview:   openUsageOverview()
-        case cmdShare:      openUsageShare()
-        case cmdNotifications: openNotifications()
+        case cmdShare:      showToolbox("share")
+        case cmdNotifications: toolboxAction("notices",[:])
         case cmdThemePicker: openThemePicker()
         case cmdEditCustom: openCustomThemeEditor()
         case cmdTempC:      setUseFahrenheit(false)
@@ -1094,6 +1292,9 @@ final class WindowsApp: @unchecked Sendable {
             BrandIconStyle.current = cmd == cmdOfficialIcons ? .official : .emoji
             render()
         case cmdResetAppearance:
+            UserDefaults.standard.remove(.dialTextMode)
+            UserDefaults.standard.remove(.dialTextColor)
+            UserDefaults.standard.remove(.dropdownTextColor)
             UserDefaults.standard.remove(.quickContrastPreset)
             render()
         case let c where c >= cmdCityBase && c < cmdCityBase + Int32(Self.cities.count):
@@ -1155,17 +1356,18 @@ final class WindowsApp: @unchecked Sendable {
     private func setLang(_ lang: AppLanguage) {
         L10n.shared.language = lang          // didSet 落盘；dateFmt 为实例计算属性，下一帧即生效
         WindowsWeather.refresh(forCity: selectedCity)
+        MainActor.assumeIsolated{toolboxes?.refreshLocalization()}
         render()
     }
 
     private func showAbout() {
         let en = L10n.shared.language == .en
-        guard let dlg = dlg_create(en ? "About TokenClock" : "关于 TokenClock", 360, 468) else { return }
+        guard let dlg = dlg_create(en ? "About OmniClock" : "关于 OmniClock", 360, 468) else { return }
         aboutDlg = dlg
         defer { aboutDlg = nil; dlg_destroy(dlg) }
         dlg_add_brand_logo(dlg, 136, 22, 88, 88)
-        brand_add_title(dlg, "TokenClock", 112, 120, 180, 30)
-        brand_add_static(dlg, "v1.5.12", 154, 154, 90, 22)
+        brand_add_title(dlg, "OmniClock", 112, 120, 180, 30)
+        brand_add_static(dlg, "v" + AppConfig.version, 154, 154, 90, 22)
         dlg_add_sep(dlg, 28, 188, 304)
         brand_add_static(dlg, "Copyright © 2026 Neo-Isshin", 78, 210, 250, 22)
         brand_add_static(dlg, L10n.shared.tr("about.license"), 128, 238, 180, 22)
@@ -1180,7 +1382,7 @@ final class WindowsApp: @unchecked Sendable {
     fileprivate func handleAboutCmd(_ id: Int32) {
         let url: String
         switch id {
-        case 800: url = "https://github.com/Neo-Isshin/TokenClock/issues"
+        case 800: url = "https://github.com/Neo-Isshin/omniclock/issues"
         case 801: url = "https://www.ailyre.com"
         default: return
         }
@@ -1210,6 +1412,7 @@ final class WindowsApp: @unchecked Sendable {
         }
         switch id {
         case 980:
+            reconcileQuotaAccounts()
             selectAutomaticDialQuotaProviderIfReady()
             rebuildSubscriptionQuotaDialog()
             render()
@@ -1270,15 +1473,18 @@ final class WindowsApp: @unchecked Sendable {
             _ = subscriptionAccountStore.update(id: current.id, note: "Personal", manualPlan: "Pro 20x")
         }
         typealias Card = (provider: SubscriptionProvider, title: String, status: CodexQuotaStatus, accounts: [SubscriptionAccountRecord])
+        let visibleAccounts=XSubscriptionQuota.visibleAccounts(subscriptionAccountStore.records(),activeIDs:activeSubscriptionAccountIDs,selected:dialQuotaProviders)
+        let visibleIDs=Set(visibleAccounts.map(\.id))
         let allCards: [Card] = quotaProviderOrder.map { provider in
-            let title = "\(provider.emoji) \(provider.displayName)"
+            let shared=XSubscriptionQuota.contains(freshDialQuotaGroups(for:provider))
+            let title = "\(provider.emoji) \(shared ? XSubscriptionQuota.title:provider.displayName)"
             switch provider {
-            case .codex: return (provider, title, codex.status, subscriptionAccounts(for: provider))
-            case .claude: return (provider, title, claude.status, subscriptionAccounts(for: provider))
-            case .antigravity: return (provider, title, antigravity.status, subscriptionAccounts(for: provider))
-            case .cursor: return (provider, title, cursor.status, subscriptionAccounts(for: provider))
-            case .grokBot: return (provider, title, grokBot.status, subscriptionAccounts(for: provider))
-            case .zhipu: return (provider, title, zhipu.status, subscriptionAccounts(for: provider))
+            case .codex: return (provider, title, codex.status, subscriptionAccounts(for: provider).filter{visibleIDs.contains($0.id)})
+            case .claude: return (provider, title, claude.status, subscriptionAccounts(for: provider).filter{visibleIDs.contains($0.id)})
+            case .antigravity: return (provider, title, antigravity.status, subscriptionAccounts(for: provider).filter{visibleIDs.contains($0.id)})
+            case .cursor: return (provider, title, cursor.status, subscriptionAccounts(for: provider).filter{visibleIDs.contains($0.id)})
+            case .grokBot: return (provider, title, grokBot.status, subscriptionAccounts(for: provider).filter{visibleIDs.contains($0.id)})
+            case .zhipu: return (provider, title, zhipu.status, subscriptionAccounts(for: provider).filter{visibleIDs.contains($0.id)})
             }
         }
         let cards = allCards.filter {
@@ -1310,8 +1516,11 @@ final class WindowsApp: @unchecked Sendable {
         }
         brand_add_section(dialog, L10n.shared.tr("quota.dialDisplay"), 24, 82, 54, 22)
         let selectorColumns = twoColumns ? 6 : 3
-        let selectorTheme = selectedTheme.winTheme
-        for (index, provider) in SubscriptionProvider.allCases.enumerated() {
+        let selectorTheme = effectiveDialTheme
+        let choices=SubscriptionProvider.allCases.filter { provider in
+            !XSubscriptionQuota.contains(freshDialQuotaGroups(for:provider)) || visibleAccounts.contains{$0.provider==provider}
+        }
+        for (index, provider) in choices.enumerated() {
             let column = index % selectorColumns
             let row = index / selectorColumns
             let x = Int32(82 + column * 128)
@@ -1319,7 +1528,7 @@ final class WindowsApp: @unchecked Sendable {
             let color = dialQuotaColor(provider, themeTextColor: selectorTheme.text_primary)
             dlg_add_swatch(dialog, x, y + 8, 8, color)
             brand_add_check(
-                dialog, 1300 + Int32(index), provider.displayName,
+                dialog, 1300 + Int32(SubscriptionProvider.allCases.firstIndex(of:provider)!), (XSubscriptionQuota.contains(freshDialQuotaGroups(for:provider)) ? XSubscriptionQuota.title : provider.displayName) + (effectiveDialProviders.firstIndex(of:provider).map { "  [\($0 / 2 + 1)]" } ?? ""),
                 x + 12, y, 112, 24, dialQuotaProviders.contains(provider) ? 1 : 0
             )
         }
@@ -1457,8 +1666,12 @@ final class WindowsApp: @unchecked Sendable {
         UserDefaults.standard.setStringArray(quotaProviderOrder.map(\.rawValue), for: .subscriptionQuotaOrder)
     }
 
+    private var effectiveDialProviders: [SubscriptionProvider] {
+        XSubscriptionQuota.dialProviders(dialQuotaProviders,records:subscriptionAccountStore.records(),activeIDs:activeSubscriptionAccountIDs,
+            selectedIDs:Dictionary(uniqueKeysWithValues:SubscriptionProvider.allCases.compactMap { provider in DialQuotaAccountSelection.selectedID(for:provider).map{(provider,$0)} }))
+    }
     private func dialQuotaIndicators() -> [DialQuotaIndicator] {
-        dialQuotaProviders.compactMap { provider in
+        effectiveDialProviders.compactMap { provider in
             DialQuotaAccountSelection.indicator(
                 provider: provider, selectedID: DialQuotaAccountSelection.selectedID(for: provider),
                 activeID: activeSubscriptionAccountIDs[provider], records: subscriptionAccountStore.records(),
@@ -1520,7 +1733,7 @@ final class WindowsApp: @unchecked Sendable {
         if isDialAccountSelected(account) {
             toggleDialQuotaProvider(account.provider)
         } else {
-            guard dialQuotaProviders.contains(account.provider) || dialQuotaProviders.count < 2 else { return }
+            guard dialQuotaProviders.contains(account.provider) || effectiveDialProviders.count < DialQuotaPager.maximumSelection else { return }
             DialQuotaAccountSelection.select(account.id, for: account.provider)
             if !dialQuotaProviders.contains(account.provider) { toggleDialQuotaProvider(account.provider) }
         }
@@ -1528,10 +1741,17 @@ final class WindowsApp: @unchecked Sendable {
 
     private func toggleDialQuotaProvider(_ provider: SubscriptionProvider) {
         shouldAutomaticallySelectDialQuotaProvider = false
-        if let index = dialQuotaProviders.firstIndex(of: provider) {
-            dialQuotaProviders.remove(at: index)
+        if dialQuotaProviders.contains(provider) {
+            let records=subscriptionAccountStore.records()
+            let key=records.first{ $0.id==activeSubscriptionAccountIDs[provider] }.flatMap(XSubscriptionQuota.accountKey)
+            dialQuotaProviders.removeAll { candidate in
+                if candidate==provider{return true}
+                guard let key,let record=records.first(where:{$0.id==activeSubscriptionAccountIDs[candidate]}) else{return false}
+                return XSubscriptionQuota.accountKey(record)==key
+            }
         } else {
-            guard dialQuotaProviders.count < 2 else { return }
+            dialQuotaProviders=effectiveDialProviders
+            guard effectiveDialProviders.count < DialQuotaPager.maximumSelection else { return }
             dialQuotaProviders.append(provider)
             refreshSubscriptionQuotas(force: false, providers: [provider])
         }
@@ -1547,7 +1767,9 @@ final class WindowsApp: @unchecked Sendable {
             grokBotQuotaState.snapshot().status, zhipuQuotaState.snapshot().status,
         ]
         guard statuses.allSatisfy({ $0 != .idle && $0 != .loading }) else { return }
-        let indicators = dialQuotaIndicators().filter { indicator in
+        let indicators = SubscriptionProvider.allCases.compactMap { provider in
+            DialQuotaAccountSelection.indicator(provider:provider,selectedID:nil,activeID:activeSubscriptionAccountIDs[provider],records:subscriptionAccountStore.records(),liveGroups:freshDialQuotaGroups(for:provider))
+        }.filter { indicator in
             switch indicator.provider {
             case .codex: return codexQuotaState.snapshot().status == .available
             case .claude: return claudeQuotaState.snapshot().status == .available
@@ -1567,7 +1789,7 @@ final class WindowsApp: @unchecked Sendable {
     }
 
     private func dialQuotaTooltip(_ indicator: DialQuotaIndicator) -> String {
-        var lines = [indicator.provider.displayName]
+        var lines = [indicator.provider.emoji + " " + indicator.displayName]
         if let name = indicator.accountName { lines.append(name) }
         for detail in indicator.details {
             lines.append("\(L10n.shared.tr(detail.labelKey)) \(String(format: "%.0f%%", detail.remainingPercent))")
@@ -1589,7 +1811,14 @@ final class WindowsApp: @unchecked Sendable {
             case .grokBot: return 0xFF6366F2
             case .zhipu: return 0xFF000000
             }
-        case .glass, .midnight, .luxe, .sky, .custom:
+        case .glass:
+            guard provider != .zhipu else{return themeTextColor}
+            let tint:UInt32
+            switch provider {case .codex:tint=0x10A37F;case .claude:tint=0xD96647;case .antigravity:tint=0x8C5CF5;case .cursor:tint=0x1A9EEB;case .grokBot:tint=0x6366F2;case .zhipu:tint=0}
+            var color:UInt32=0xff000000
+            for shift in [0,8,16] {let component=Double((themeTextColor>>shift)&255)*0.62+Double((tint>>shift)&255)*0.38;color|=UInt32(component.rounded())<<shift}
+            return color
+        case .midnight, .luxe, .sky, .custom:
             return themeTextColor
         }
     }
@@ -1642,19 +1871,23 @@ final class WindowsApp: @unchecked Sendable {
             )
         }
         let codex = CodexQuotaSnapshot(
-            status: .available, buckets: [bucket("codex", "Codex", 20)], planType: "pro",
+            status: .available, buckets: [bucket("codex-weekly", "Weekly", 20),bucket("codex-5h", "5-hour",45,300)], planType: "pro",
             creditBalance: nil, hasUnlimitedCredits: false, resetCreditCount: 0,
             refreshedAt: now, source: .appServer, message: nil,
             account: SubscriptionAccountIdentity(id: "codex-account", email: "codex@example.com")
         )
         let claude = ClaudeQuotaSnapshot(
-            status: .available, buckets: [bucket("claude", "Claude", 40, 300)], planType: "max_5x",
+            status: .available, buckets: [bucket("claude:seven_day", "Weekly",60),bucket("claude:five_hour", "5-hour",40,300)], planType: "max_5x",
             refreshedAt: now, source: .oauthAPI, message: nil,
             account: SubscriptionAccountIdentity(id: "claude-account", email: "claude@example.com")
         )
+        var antigravity=provider("antigravity",nil,"Antigravity local service")
+        antigravity.groups=[ProviderQuotaGroup(id:"gemini",name:"Gemini",buckets:[bucket("gemini-weekly","Gemini weekly",4),bucket("gemini-5h","Gemini 5-hour",10,300)]),
+            ProviderQuotaGroup(id:"claude-gpt",name:"GPT / Claude",buckets:[bucket("claude-weekly","GPT / Claude weekly",48),bucket("claude-5h","GPT / Claude 5-hour",21,300)]),
+            ProviderQuotaGroup(id:"argon",name:"Gemini 4 Argon",buckets:[bucket("argon-weekly","Gemini 4 Argon weekly",18),bucket("argon-5h","Gemini 4 Argon 5-hour",12,300)])]
         return (
             codex, claude,
-            provider("antigravity", nil, "Antigravity local service"),
+            antigravity,
             provider("cursor", "pro_plus", "Cursor dashboard", "cursor@example.com"),
             provider("grok-bot", "pro", "Cursor Grok Bot API", "cursor@example.com"),
             provider("zhipu", "pro", "ZCode Coding Plan")
@@ -2162,7 +2395,11 @@ final class WindowsApp: @unchecked Sendable {
 
     // MARK: - Share usage
 
-    private func openUsageShare(initialDate: Date = Date()) {
+    private func openUsageShare(initialDate: Date? = nil) {
+        model.persistCurrentUsage();showToolbox("share")
+        if let initialDate {MainActor.assumeIsolated{toolboxes?.handle(key:"share",message:["command":"sharePeriod","data":["mode":"recent","days":1,"date":BillingText.dateKey(initialDate)]])}}
+    }
+    private func openLegacyUsageShare(initialDate: Date = Date()) {
         model.persistCurrentUsage()
         shareDate = min(initialDate, Date())
         shareMode = .recent
@@ -2469,7 +2706,8 @@ final class WindowsApp: @unchecked Sendable {
         let expandedHeight = expandedSettingsSection.map(settingsSectionHeight) ?? 0
         let contentHeight: Int32 = 76 + Int32(rows.count * 56) + expandedHeight + 72
         dlg_reset_content(dlg, contentHeight)
-        brand_add_title(dlg, en ? "TokenClock Settings" : "TokenClock 设置", 24, 14, 330, 30)
+        brand_add_title(dlg, en ? "OmniClock Settings" : "OmniClock 设置", 24, 14, 300, 30)
+        dlg_add_push(dlg,790,toolboxText("通知设置","Notifications"),356,16,132,28)
         brand_add_subtitle(dlg, en ? "Expand a section to review and edit it." : "展开一个分组进行查看与编辑。", 24, 48, 450, 20)
 
         var y: Int32 = 76
@@ -2950,6 +3188,7 @@ final class WindowsApp: @unchecked Sendable {
 
     /// Accordion routing, provider folder browsing, and evidence-backed auto detection.
     fileprivate func handleSettingsCmd(_ id: Int32) {
+        if id==790 {showToolbox("notifications");return}
         guard let dlg = settingsDlg else { return }
         if id >= 600 && id < 600 + Int32(Self.providerNames.count) {
             let index = Int(id - 600)
@@ -3018,6 +3257,8 @@ final class WindowsApp: @unchecked Sendable {
     }
 
     fileprivate func shutdown() {
+        shuttingDown=true
+        MainActor.assumeIsolated{toolboxes?.stop()}
         var x: Int32 = 0, y: Int32 = 0
         win_get_pos(win_self(), &x, &y)
         UserDefaults.standard.setInt(Int(x), for: .windowsWindowX)
@@ -3493,3 +3734,6 @@ private let pricingCmdCb: @convention(c) (UnsafeMutableRawPointer?, Int32) -> Vo
 private let aboutCmdCb: @convention(c) (UnsafeMutableRawPointer?, Int32) -> Void = { _, id in
     WindowsApp.shared.handleAboutCmd(id)
 }
+
+private let appPump: @convention(c) (UnsafeMutableRawPointer?) -> Void = { _ in WindowsApp.shared.pumpFoundation() }
+private let appQuotaClick: @convention(c) (UnsafeMutableRawPointer?,Int32,Int32) -> Void = { _,index,button in WindowsApp.shared.quotaClick(index:index,button:button) }

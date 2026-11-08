@@ -1,0 +1,18 @@
+window.TokenClockDNSLocationsNative=true;
+window.webkit={messageHandlers:{networkDiagnostics:{postMessage:body=>chrome.webview.postMessage({channel:'network',body})}}};
+chrome.webview.addEventListener('message',event=>{if(event.data?.runID)window.TokenClockLeak?.receiveDiagnostics(event.data);});
+document.addEventListener('DOMContentLoaded',()=>{
+ const zh=(new URL(location.href).searchParams.get('lang')||'en').startsWith('zh'),t=(cn,en)=>zh?cn:en;
+ const style=document.createElement('style');style.textContent=':root,body{background:transparent!important}main{max-width:none;padding:18px}.card{background:light-dark(#ffffff80,#20273399)!important}';document.head.append(style);
+ const scope=document.getElementById('diagnosticScope');if(scope)scope.textContent=t('检测使用 Windows 系统代理／VPN；应用内结果不代表浏览器扩展规则。','App checks use Windows system proxy/VPN settings; browser extension rules may differ.');
+ const browser=document.getElementById('browser');if(browser)browser.onclick=()=>chrome.webview.postMessage({channel:'browser'});
+ const card=document.createElement('section');card.className='card';card.innerHTML='<div class="card-top"><h2></h2><span class="badge"></span></div><p class="card-summary"></p><div class="addresses"><div style="display:flex;gap:6px"><input id="mainland-ip" placeholder="IPv4 / IPv6" style="margin:0;padding:4px;min-width:0"><input id="mainland-port" value="443" style="width:56px;margin:0;padding:4px"></div><div style="display:flex;gap:5px;margin:5px 0"><button id="mainland-use" style="padding:3px 6px"></button><button id="mainland-run" style="padding:3px 6px"></button><button id="mainland-stop" style="padding:3px 6px"></button></div><div id="mainland-rows"></div></div>';
+ card.querySelector('h2').textContent=t('大陆可达性','Mainland reachability');card.querySelector('.card-summary').textContent=t('单独检测目标服务；超时不代表封锁。','Check a target service separately; timeouts do not prove blocking.');
+ document.querySelector('.checks-grid')?.append(card);
+ const use=card.querySelector('#mainland-use'),start=card.querySelector('#mainland-run'),stop=card.querySelector('#mainland-stop');use.textContent=t('当前出口','Use exit');start.textContent=t('检测','Check');stop.textContent=t('停止','Stop');
+ use.onclick=()=>{card.querySelector('#mainland-ip').value=window.TokenClockLeak?.snapshot()?.ip||'';};
+ start.onclick=()=>chrome.webview.postMessage({channel:'mainland',action:'start',ip:card.querySelector('#mainland-ip').value,port:card.querySelector('#mainland-port').value});stop.onclick=()=>chrome.webview.postMessage({channel:'mainland',action:'stop'});
+ const notice=document.createElement('p');notice.className='note';notice.textContent=t('大陆可达性由 Globalping 提供。点击检测会发送目标 IP、端口，测量结果可能公开。','Mainland checks use Globalping. Clicking Check sends the target IP and port; results may be public.');const link=document.createElement('a');link.href='https://globalping.io/';link.textContent=' Globalping';link.onclick=event=>event.preventDefault();notice.append(link);card.after(notice);
+ window.OmniMainland={update(data){start.disabled=!!data.running;stop.disabled=!data.running;card.querySelector('.badge').textContent=data.running?t('检测中','Checking'):data.summary?t('已完成','Finished'):t('尚未检测','Not checked');if(data.error||data.summary)card.querySelector('.card-summary').textContent=data.error||data.summary;const rows=card.querySelector('#mainland-rows');rows.replaceChildren();for(const row of data.rows||[]){const line=document.createElement('div');line.className='address';line.textContent=row.country+' · '+row.carrier+' · '+(row.state==='reachable'?t('可连接','Connected'):t('未连接成功','Not connected'));rows.append(line);}}};
+ chrome.webview.postMessage({event:'ready'});
+});

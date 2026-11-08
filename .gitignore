@@ -4,3 +4,11 @@
 xcuserdata/
 *.xcodeproj/
 DerivedData/
+
+# Local Windows acceptance builds and UI evidence
+.build-ui-review/
+dist/
+dist-ui-review/
+dist-ui-active/
+.playwright-cli/
+output/
