@@ -24,6 +24,8 @@ final class NetworkDiagnosticsTests: XCTestCase {
         let v6 = NetworkDiagnostics.targets.first { $0.id == "ipv6" }!
         let wrongFamily = NetworkDiagnosticReply(data: Data("{\"ip\":\"8.8.8.8\"}".utf8), status: 200, limited: false)
         XCTAssertNil(NetworkDiagnostics.parse(wrongFamily, target: v6).ip)
+        let privateV6 = NetworkDiagnosticReply(data: Data("{\"ip\":\"fd00::1\"}".utf8), status: 200, limited: false)
+        XCTAssertNil(NetworkDiagnostics.parse(privateV6, target: v6).ip)
         let limited = NetworkDiagnosticReply(data: Data("ip=8.8.8.8\nloc=US".utf8), status: 200, limited: true)
         XCTAssertNil(NetworkDiagnostics.parse(limited, target: ai).ip)
     }

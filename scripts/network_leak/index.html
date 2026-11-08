@@ -8,18 +8,33 @@
 @media(max-width:480px){main{padding:18px}h1{font-size:21px}.toolbar{flex-wrap:wrap}#browser{margin-left:0}.address{align-items:flex-start}.address code{font-size:12px}}
 .checks-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.checks-grid .card{margin:0;min-width:0}.diagnostic-row{display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)}.diagnostic-row:last-child{border-bottom:0}.diagnostic-name{font-size:10px;color:var(--muted);min-width:63px;padding-top:2px}.diagnostic-row>div{min-width:0;flex:1}.diagnostic-row code{font:11px ui-monospace,monospace;overflow-wrap:anywhere}.diagnostic-row small{display:block;font-size:9px;color:var(--muted);line-height:1.5}.diagnostic-row[data-state=review] code{color:#a4762f}.policy{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-top:8px}.policy input{display:inline;width:auto;margin:0}.policy-hint,.scope-note{font-size:10px;line-height:1.6;margin-top:5px}.comparison{font-size:10px!important}.scope-note{margin-top:12px}.addresses{font-family:inherit}.checks-grid .card-top{align-items:flex-start}.checks-grid h2{line-height:1.5}.card h2{font-size:12px}.card{padding:13px}main{max-width:850px}.toolbar{margin:12px 0}.status{margin-bottom:12px;padding-bottom:12px}
 @media(max-width:540px){.checks-grid{grid-template-columns:1fr}.diagnostic-name{min-width:86px}}
+
+/* Equal result cards: one conclusion and a six-row result viewport. */
+.checks-grid .card{height:204px;display:flex;flex-direction:column;gap:8px;padding:14px}
+.checks-grid .card-top{height:22px;min-height:22px;align-items:center}
+.checks-grid .card h2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.checks-grid .card>p:not(.card-summary){display:none}
+.checks-grid .card .card-summary{display:block;height:30px;min-height:30px;margin:0;font-size:11px;line-height:15px;font-weight:550;color:inherit;overflow:hidden}
+.checks-grid .addresses{height:108px;min-height:108px;max-height:108px;margin:0;overflow-y:auto}
+.checks-grid .address,.checks-grid .diagnostic-row{height:18px;min-height:18px;padding:0;border:0;align-items:center;line-height:18px}
+.checks-grid .address code,.checks-grid .diagnostic-row code{font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.checks-grid .address span{max-width:45%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.checks-grid .diagnostic-row>div{display:flex;align-items:center;gap:6px;overflow:hidden}
+.checks-grid .diagnostic-row small{display:inline;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:18px;max-width:48%}
+.checks-grid .diagnostic-name{padding:0;max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge[data-state=partial]{color:var(--muted)}
 </style></head><body><main>
 <header><div class="mark" aria-hidden="true"><svg width="26" height="29" viewBox="0 0 26 29" fill="none"><path d="M13 2 23 6v7c0 6-5 10-10 13C8 23 3 19 3 13V6L13 2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m8 14 3.3 3.3L18 10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><h1 id="title">Network Check</h1><p id="subtitle"></p></div></header>
 <div id="scope" class="scope"></div>
 <div class="toolbar"><button id="start" class="primary">Start check</button><button id="stop" hidden>Stop</button><button id="browser" hidden>Check in browser ↗</button></div>
 <div class="status" role="status" aria-live="polite"><strong id="overallSummary"></strong><strong id="idle"></strong><p id="idleHint"></p></div>
-<div class="checks-grid"><section class="card"><div class="card-top"><h2 id="exitTitle"></h2><span id="exitBadge" class="badge"></span></div><p id="exitHint"></p><div id="exitAddresses" class="addresses empty">—</div></section>
-<section class="card"><div class="card-top"><h2 id="dnsTitle"></h2><span id="dnsBadge" class="badge"></span></div><p id="dnsHint"></p><div id="dnsAddresses" class="addresses empty">—</div></section>
-<section class="card"><div class="card-top"><h2 id="rtcTitle"></h2><span id="rtcBadge" class="badge"></span></div><p id="rtcHint"></p><div id="rtcAddresses" class="addresses empty">—</div></section>
-<section class="card"><div class="card-top"><h2 id="consistencyTitle"></h2><span id="consistencyBadge" class="badge"></span></div><p id="consistencyHint"></p><p id="consistencyDetail" class="comparison"></p><div id="consistencyAddresses" class="addresses empty">—</div></section>
-<section class="card"><div class="card-top"><h2 id="ipv6Title"></h2><span id="ipv6Badge" class="badge"></span></div><p id="ipv6Hint"></p><div id="ipv6Addresses" class="addresses empty">—</div></section>
-<section class="card"><div class="card-top"><h2 id="aiTitle"></h2><span id="aiBadge" class="badge"></span></div><p id="aiHint"></p><div id="aiAddresses" class="addresses empty">—</div></section>
-<section class="card"><div class="card-top"><h2 id="dohTitle"></h2><span id="dohBadge" class="badge"></span></div><p id="dohHint"></p><div id="dohAddresses" class="addresses empty">—</div></section></div>
+<div class="checks-grid"><section class="card"><div class="card-top"><h2 id="exitTitle"></h2><span id="exitBadge" class="badge"></span></div><p id="exitHint"></p><p id="exitSummary" class="card-summary" aria-live="polite"></p><div id="exitAddresses" class="addresses empty">—</div></section>
+<section class="card"><div class="card-top"><h2 id="dnsTitle"></h2><span id="dnsBadge" class="badge"></span></div><p id="dnsHint"></p><p id="dnsSummary" class="card-summary" aria-live="polite"></p><div id="dnsAddresses" class="addresses empty">—</div></section>
+<section class="card"><div class="card-top"><h2 id="rtcTitle"></h2><span id="rtcBadge" class="badge"></span></div><p id="rtcHint"></p><p id="rtcSummary" class="card-summary" aria-live="polite"></p><div id="rtcAddresses" class="addresses empty">—</div></section>
+<section class="card"><div class="card-top"><h2 id="consistencyTitle"></h2><span id="consistencyBadge" class="badge"></span></div><p id="consistencyHint"></p><p id="consistencyDetail" class="comparison"></p><p id="consistencySummary" class="card-summary" aria-live="polite"></p><div id="consistencyAddresses" class="addresses empty">—</div></section>
+<section class="card"><div class="card-top"><h2 id="ipv6Title"></h2><span id="ipv6Badge" class="badge"></span></div><p id="ipv6Hint"></p><p id="ipv6Summary" class="card-summary" aria-live="polite"></p><div id="ipv6Addresses" class="addresses empty">—</div></section>
+<section class="card"><div class="card-top"><h2 id="aiTitle"></h2><span id="aiBadge" class="badge"></span></div><p id="aiHint"></p><p id="aiSummary" class="card-summary" aria-live="polite"></p><div id="aiAddresses" class="addresses empty">—</div></section>
+<section class="card"><div class="card-top"><h2 id="dohTitle"></h2><span id="dohBadge" class="badge"></span></div><p id="dohHint"></p><p id="dohSummary" class="card-summary" aria-live="polite"></p><div id="dohAddresses" class="addresses empty">—</div></section></div>
 <details><summary id="expectedTitle"></summary><input id="expected" aria-labelledby="expectedTitle" autocomplete="off" spellcheck="false"><p id="expectedHint"></p></details>
 <label class="policy"><input id="ipv4Only" type="checkbox"><span id="ipv4OnlyLabel"></span></label><p id="policyHint" class="policy-hint"></p>
 <p id="diagnosticScope" class="scope-note"></p><p id="note" class="note"></p><p id="privacy" class="privacy"></p>

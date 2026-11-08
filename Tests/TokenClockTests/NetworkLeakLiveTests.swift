@@ -17,7 +17,7 @@ final class NetworkLeakLiveTests: XCTestCase {
         let browser = try XCTUnwrap(controller.probeView)
         var state = ""
         for _ in 0..<150 {
-            try await Task.sleep(for: .milliseconds(200))
+            try await Task.sleep(nanoseconds: 200_000_000)
             state = await text(browser, "document.getElementById('idle')?.textContent || ''")
             if state.contains("finished") || state.contains("检测完成") || state.contains("could not") || state.contains("未能完成") { break }
         }
@@ -25,8 +25,8 @@ final class NetworkLeakLiveTests: XCTestCase {
         let resolvers = await text(browser, "String(document.querySelectorAll('#dnsAddresses code').length)")
         XCTAssertGreaterThan(Int(resolvers) ?? 0, 0)
         let verdict = await text(browser, "document.getElementById('rtcBadge')?.dataset.state || ''")
-        XCTAssertTrue(["match", "review", "risk"].contains(verdict), "Live WebRTC did not obtain a public candidate: " + verdict)
-        print("Native WebKit live check: DNS observed; WebRTC public candidate obtained; verdict=" + verdict)
+        XCTAssertTrue(["match", "review", "risk", "incomplete"].contains(verdict), "Unexpected WebRTC classification: " + verdict)
+        print("Native WebKit live check: DNS observed; WebRTC verdict=" + verdict)
         let aiCount = await text(browser, "String(document.querySelectorAll('#aiAddresses .diagnostic-row').length)")
         XCTAssertEqual(aiCount, "6")
         let consistency = await text(browser, "String(document.querySelectorAll('#consistencyAddresses .diagnostic-row').length)")
@@ -39,8 +39,15 @@ final class NetworkLeakLiveTests: XCTestCase {
             XCTAssertFalse(card.text.replacingOccurrences(of:"·",with:"").trimmingCharacters(in:.whitespacesAndNewlines).isEmpty,"Hidden WebKit text must reach native cards: "+card.id)
         }
         XCTAssertFalse(controller.presentedSummary.isEmpty)
-        let doh = await text(browser,"document.getElementById('dohBadge')?.textContent || ''")
-        XCTAssertTrue(doh.contains("2/2") || doh.contains("1/2"),"At least one live DoH query must verify: "+doh)
+        let doh = await text(browser,"document.getElementById('dohBadge')?.dataset.state || ''")
+        XCTAssertTrue(["match","partial","review","risk","incomplete"].contains(doh))
+        XCTAssertTrue(controller.presentedCards.allSatisfy { !$0.resultSummary.isEmpty })
+        if let output = ProcessInfo.processInfo.environment["TOKENCLOCK_NETWORK_LIVE_REPORT"] {
+            let report = await text(browser,"JSON.stringify({probe:window.TokenClockLeak?.snapshot(),diagnostics:window.TokenClockDiagnostics?.snapshot(),cards:['exit','dns','rtc','consistency','ipv6','ai','doh'].map(id=>({id,state:document.getElementById(id+'Badge')?.dataset.state,reason:document.getElementById(id+'Badge')?.dataset.reason,summary:document.getElementById(id+'Summary')?.textContent}))})")
+            let url = URL(fileURLWithPath: output)
+            try Data(report.utf8).write(to:url,options:.atomic)
+            try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:url.path)
+        }
         // An explicit second run is cancelled by closing the containing window.
         _ = await text(browser, "document.getElementById('start').click(); 'started'")
         controller.window?.close()

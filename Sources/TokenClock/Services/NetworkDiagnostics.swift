@@ -92,7 +92,8 @@ final class NetworkDiagnosticFetcher: NSObject, URLSessionDataDelegate, @uncheck
     private var session: URLSession!
 
     init(configuration: URLSessionConfiguration = .ephemeral, maximumBodyBytes: Int = NetworkDiagnosticFetcher.bodyLimit,
-         userAgent: String = "TokenClock-NetworkCheck/1") {
+         userAgent: String = "TokenClock-NetworkCheck/1", requestTimeout: TimeInterval = 6,
+         resourceTimeout: TimeInterval = 8) {
         self.maximumBodyBytes = maximumBodyBytes
         self.userAgent = userAgent
         super.init()
@@ -101,8 +102,8 @@ final class NetworkDiagnosticFetcher: NSObject, URLSessionDataDelegate, @uncheck
         configuration.urlCredentialStorage = nil
         configuration.urlCache = nil
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        configuration.timeoutIntervalForRequest = 6
-        configuration.timeoutIntervalForResource = 8
+        configuration.timeoutIntervalForRequest = requestTimeout
+        configuration.timeoutIntervalForResource = resourceTimeout
         configuration.httpMaximumConnectionsPerHost = 2
         session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
     }
@@ -208,11 +209,13 @@ enum NetworkDiagnostics {
         } else if let result = NetworkDiagnosticParser.trace(reply.data) {
             row.ip = result.ip; row.country = result.country
         }
+        if let address = row.ip, MainlandReachabilityTarget.parse(ip: address, port: "443") == nil { row.ip = nil }
         if row.ip != nil { row.state = "observed" }
         return row
     }
 
     static func run(runID: String, baselineIP: String?, fetcher: NetworkDiagnosticFetcher, dnsToken: String? = nil) async -> NetworkDiagnosticsResult {
+        async let resolverLocations = DNSResolverLocations.run(token: dnsToken)
         var rows = await withTaskGroup(of: NetworkDiagnosticRow.self) { group in
             for target in targets {
                 group.addTask { parse(await fetcher.fetch(URL(string: target.url)!, head: target.head), target: target) }
@@ -255,6 +258,7 @@ enum NetworkDiagnostics {
         }
         rows += locations
         rows += await dohRows
+        rows += await resolverLocations
         return .init(runID: runID, rows: rows.sorted { $0.id < $1.id })
     }
 }

@@ -8,7 +8,12 @@
       return octets.every(x => x >= 0 && x <= 255) ? octets.join('.') : null;
     }
     if (!value.includes(':') || !/^[0-9a-f:.]+$/i.test(value)) return null;
-    try { return new URL('https://[' + value + ']/').hostname.replace(/[\[\]]/g, '').toLowerCase(); }
+    try {
+      const normalized = new URL('https://[' + value + ']/').hostname.replace(/[\[\]]/g, '').toLowerCase();
+      const mapped = normalized.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+      if (mapped) { const a = parseInt(mapped[1],16), b = parseInt(mapped[2],16); return [a >> 8, a & 255, b >> 8, b & 255].join('.'); }
+      return normalized;
+    }
     catch (_) { return null; }
   }
   function family(value) { return value.includes(':') ? 6 : 4; }
@@ -27,35 +32,80 @@
       (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
       (a === 203 && b === 0 && c === 113));
   }
+  function isLocal(value) {
+    value = ip(value);
+    if (!value) return false;
+    if (family(value) === 6) return /^(fc|fd)[0-9a-f]{2}:|^fe[89ab][0-9a-f]:/.test(value);
+    const [a,b] = value.split('.').map(Number);
+    return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
+      (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127);
+  }
   function candidate(raw) {
     const parts = String(raw.candidate || '').trim().split(/\s+/);
     const address = raw.address || parts[4] || '';
-    if (address.endsWith('.local')) return { kind: 'mdns', address: 'mDNS' };
+    if (/\.local\.?$/i.test(address)) return { kind: 'mdns', address: 'mDNS' };
     const normalized = ip(address);
     if (!normalized) return null;
-    const type = raw.type || parts[parts.indexOf('typ') + 1];
-    // TURN addresses belong to a relay, not to the user's physical interface.
+    const marker = parts.indexOf('typ');
+    const type = raw.type || (marker >= 0 ? parts[marker + 1] : '');
+    if (!['host','srflx','prflx','relay'].includes(type)) return null;
+    // A relay's IP does not identify the client. Its related address, if exposed,
+    // is still inspected separately below.
     if (type === 'relay') return { kind: 'relay', address: normalized };
-    return { kind: isPublic(normalized) ? 'public' : 'local', address: normalized };
+    if (isPublic(normalized)) return {kind:'public',address:normalized};
+    return isLocal(normalized) ? {kind:'local',address:normalized} : null;
   }
-  function rtcVerdict(httpIP, candidates, complete) {
+  function candidateAddresses(raw) {
+    const first = candidate(raw);
+    const values = first ? [first] : [];
+    const parts = String(raw.candidate || '').trim().split(/\s+/);
+    const index = parts.indexOf('raddr');
+    const related = ip(raw.relatedAddress || (index >= 0 ? parts[index + 1] : ''));
+    const kind = related && (isPublic(related) ? 'public' : isLocal(related) ? 'local' : null);
+    if (kind && !values.some(x => x.address === related && x.kind === kind)) values.push({kind,address:related});
+    return values;
+  }
+  function rtcAssessment(httpIP, candidates, complete, rows = [], ipv4Only = false) {
     const baseline = ip(httpIP);
-    const exposed = [...new Set(candidates.filter(x => x.kind === 'public').map(x => x.address))];
-    if (!baseline || !exposed.length) return 'incomplete';
-    if (exposed.some(x => family(x) === family(baseline) && x !== baseline)) return 'risk';
-    if (!complete || exposed.some(x => family(x) !== family(baseline))) return 'review';
-    return 'match';
+    const exposed = [...new Set(candidates.filter(x => x.kind === 'public').map(x => ip(x.address)).filter(x => x && isPublic(x)))];
+    const local = candidates.some(x => x.kind === 'local');
+    const observed = rows.filter(x => ['exit', 'ipv6'].includes(x.category) && x.state === 'observed')
+      .map(x => ip(x.ip)).filter(Boolean);
+    if (ipv4Only && exposed.some(x => family(x) === 6)) return { state: 'risk', reason: 'unexpectedIPv6' };
+    if (!baseline || !isPublic(baseline)) return { state: 'incomplete', reason: 'missingBaseline' };
+    let uncertain = false;
+    for (const address of exposed) {
+      if (family(address) === family(baseline)) {
+        if (address !== baseline) {
+          if (observed.includes(address)) uncertain = true;
+          else return { state: 'risk', reason: 'differentPublicIP' };
+        }
+      } else {
+        const peers = observed.filter(x => family(x) === family(address));
+        if (!peers.length) uncertain = true;
+        else if (!peers.includes(address)) return { state: 'risk', reason: 'differentPublicIP' };
+      }
+    }
+    if (local) return { state: 'review', reason: 'localAddressExposed' };
+    if (!exposed.length) return { state: 'incomplete', reason: 'noPublicSample' };
+    if (!complete) return { state: 'incomplete', reason: 'gatheringIncomplete' };
+    if (uncertain) return { state: 'review', reason: 'unconfirmedRoute' };
+    return { state: 'match', reason: 'samePublicExit' };
   }
-  function dnsVerdict(resolvers, expected) {
+  function rtcVerdict(httpIP, candidates, complete, rows = [], ipv4Only = false) {
+    return rtcAssessment(httpIP, candidates, complete, rows, ipv4Only).state;
+  }
+  function dnsVerdict(resolvers, expected, complete = true) {
     if (!resolvers.length) return 'incomplete';
     const tokens = expected.split(/[\s,;，；]+/).filter(Boolean);
     if (!tokens.length) return 'review';
     const allowed = tokens.map(ip);
     if (allowed.some(x => !x)) return 'invalid';
-    return resolvers.every(x => allowed.includes(ip(x))) ? 'match' : 'risk';
+    if (!resolvers.every(x => allowed.includes(ip(x)))) return 'risk';
+    return complete ? 'match' : 'incomplete';
   }
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { ip, isPublic, candidate, rtcVerdict, dnsVerdict };
+    module.exports = { ip, isPublic, isLocal, candidate, candidateAddresses, rtcAssessment, rtcVerdict, dnsVerdict };
     return;
   }
 
@@ -65,16 +115,16 @@
   const root = '/tokenclock/network-check';
   const embedded = new URL(location.href).searchParams.get('embedded') === '1';
   const labels = {
-    title: T('Network Check', '网络泄漏检测'),
-    subtitle: T('A small check of the addresses this environment exposes.', '检查当前环境实际暴露的网络地址'),
-    scope: embedded ? T('TokenClock · embedded WebKit', 'TokenClock · 内嵌 WebKit 环境') : T('This browser', '当前浏览器环境'),
+    title: T('Network Toolbox', '网络工具箱'),
+    subtitle: T('Check whether your connection exposes unexpected IP or DNS information.', '检查当前连接是否存在 IP 或 DNS 泄漏'),
+    scope: embedded ? T('This app connection', '当前应用的连接') : T('This browser', '当前浏览器环境'),
     start: T('Start check', '开始检测'), stop: T('Stop', '停止'),
     browser: T('Check in browser ↗', '在浏览器中检测 ↗'),
-    exitTitle: T('Web connection', '网页出口'),
+    exitTitle: T('Web exit IP', '网页出口'),
     exitHint: T('The address seen by the HTTPS server.', 'HTTPS 服务端实际看到的公网地址'),
-    dnsTitle: T('DNS resolvers', 'DNS 解析器'),
+    dnsTitle: T('DNS leak check', 'DNS 泄漏检测'),
     dnsHint: T('Observed from fresh, unique domain queries.', '通过全新随机域名查询实际观测'),
-    rtcTitle: T('WebRTC addresses', 'WebRTC 暴露地址'),
+    rtcTitle: T('WebRTC leak check', 'WebRTC 泄漏检测'),
     rtcHint: T('ICE / STUN candidates; no audio or video.', 'ICE / STUN 候选地址，不传输音视频'),
     expectedTitle: T('Expected DNS resolvers · optional', '预期 DNS 解析器 · 可选'),
     expectedHint: T('IP addresses separated by commas. Used locally for comparison.', '填写允许使用的解析器 IP，以逗号分隔；仅在当前页面内比较。'),
@@ -85,7 +135,7 @@
   };
   for (const [key, value] of Object.entries(labels)) if ($(key)) $(key).textContent = value;
   document.documentElement.lang = zh ? 'zh-CN' : 'en';
-  document.title = labels.title + ' · TokenClock';
+  document.title = labels.title + ' · OmniClock';
   $('expected').placeholder = T('For example: 1.1.1.1, 1.0.0.1', '例如：1.1.1.1, 1.0.0.1');
   $('browser').hidden = !embedded;
 
@@ -96,9 +146,18 @@
     incomplete: T('Inconclusive', '未能完成'), invalid: T('Invalid expected IP', '预期 IP 格式有误')
   };
   let active = null, last = null;
-  function badge(id, value) {
-    $(id).textContent = words[value];
+  function badge(id, value, reason = '') {
+    const leak = id === 'dnsBadge' || id === 'rtcBadge';
+    $(id).textContent = leak ? ({ match: T('No leak found', '未发现泄漏'), risk: T('Possible leak', '可能泄漏'), review: T('Cannot determine', '暂无法判断'), incomplete: T('Cannot determine', '暂无法判断') }[value] || words[value]) : words[value];
+    if (reason === 'localAddressExposed') $(id).textContent = T('Local IP exposed', '本地地址暴露');
     $(id).dataset.state = value;
+    $(id).dataset.reason = reason;
+  }
+  function summary(id, value) { const element = $(id + 'Summary'); if (element) element.textContent = value; }
+  function countryName(code) {
+    if (!/^[A-Z]{2}$/.test(code || '')) return '';
+    try { return new Intl.DisplayNames([zh ? 'zh-CN' : 'en'], { type: 'region' }).of(code) || code; }
+    catch (_) { return code; }
   }
   function addresses(id, items, empty) {
     const box = $(id); box.replaceChildren();
@@ -113,8 +172,40 @@
   }
   function renderDNS() {
     if (!last) return;
-    badge('dnsBadge', dnsVerdict(last.resolvers, $('expected').value));
+    const state = dnsVerdict(last.resolvers, $('expected').value, last.dnsComplete);
+    const reason = state === 'review' ? 'noExpectedDNS' : state === 'match' ? 'expectedDNS' : state === 'risk' ? 'unexpectedDNS' : state === 'invalid' ? 'invalidDNS' : last.resolvers.length ? 'partialDNSCheck' : 'noDNSResult';
+    badge('dnsBadge', state, reason);
+    const texts = {
+      review: T('DNS was detected, but no expected DNS was specified.', '已检测到 DNS，但尚未指定预期 DNS，暂无法判断是否泄漏。'),
+      match: T('The observed DNS sources match your expected DNS.', 'DNS 查询来源符合预期，未发现泄漏。'),
+      risk: T('Unexpected DNS sources were found; a leak is possible.', '发现预期之外的 DNS，可能存在泄漏。'),
+      invalid: T('Correct the expected DNS addresses to finish this comparison.', '预期 DNS 格式有误，请修正后再判断。'),
+      incomplete: T('No DNS result was received; a leak cannot be determined.', '未取得 DNS 结果，暂无法判断是否泄漏。')
+    };
+    summary('dns', reason === 'partialDNSCheck' ? T('Some DNS results are missing; a leak cannot be determined.', 'DNS 结果不完整，暂无法判断是否泄漏。') : texts[state]);
+    const locations = last.locations || [];
+    addresses('dnsAddresses', last.resolvers.slice(0, 6).map(address => {
+      const row = locations.find(x => ip(x.ip) === address);
+      const place = row ? [row.city, countryName(row.country)].filter(Boolean).join(', ') : '';
+      return { address, tag: place || T('Location unavailable', '位置未知') };
+    }), T('No DNS sources returned.', '没有取得 DNS 查询来源。'));
     window.TokenClockDiagnostics?.summarize();
+  }
+  function renderRTC(data) {
+    if (!last) return;
+    const assessment = rtcAssessment(last.ip, last.rtc.found, last.rtc.complete, data?.rows || [], $('ipv4Only')?.checked || false);
+    const texts = {
+      samePublicExit: T('WebRTC uses the same public exit as web traffic.', 'WebRTC 公网出口与网页一致，未发现泄漏。'),
+      differentPublicIP: T('WebRTC exposed a different public IP; a leak is possible.', 'WebRTC 暴露了不同的公网 IP，可能泄漏。'),
+      localAddressExposed: T('WebRTC exposed a local network address.', 'WebRTC 暴露了本地网络地址。'),
+      unexpectedIPv6: T('WebRTC exposed IPv6 although IPv4-only was expected.', '预期只使用 IPv4，但 WebRTC 暴露了 IPv6 地址。'),
+      missingBaseline: T('The web exit is unavailable; a leak cannot be determined.', '网页出口未取得，暂无法判断是否泄漏。'),
+      noPublicSample: T('No comparable public IP was returned; the result is inconclusive.', '未返回可比较的公网 IP，暂无法判断是否泄漏。'),
+      gatheringIncomplete: T('The WebRTC check was incomplete; a leak cannot be ruled out.', 'WebRTC 检测未完成，暂无法判断是否泄漏。'),
+      unconfirmedRoute: T('Some WebRTC addresses could not be matched to the web exit.', '部分 WebRTC 地址无法与网页出口核对，暂无法判断。')
+    };
+    badge('rtcBadge', assessment.state, assessment.reason);
+    summary('rtc', texts[assessment.reason]);
   }
   function stop() {
     const run = active;
@@ -153,8 +244,9 @@
       const done = new Promise(resolve => { finish = resolve; });
       pc.onicecandidate = event => {
         if (!event.candidate) { complete = true; finish(); return; }
-        const item = candidate(event.candidate);
-        if (item && !found.some(x => x.address === item.address && x.kind === item.kind)) found.push(item);
+        for (const item of candidateAddresses(event.candidate)) {
+          if (!found.some(x => x.address === item.address && x.kind === item.kind)) found.push(item);
+        }
       };
       pc.createDataChannel('probe');
       await pc.setLocalDescription(await pc.createOffer());
@@ -195,6 +287,7 @@
     $('idleHint').textContent = T('A few small DNS and STUN probes.', '正在发送少量 DNS 和 STUN 探测请求。');
     for (const key of ['exitBadge', 'dnsBadge', 'rtcBadge']) badge(key, 'running');
     for (const key of ['exitAddresses', 'dnsAddresses', 'rtcAddresses']) addresses(key, [], '…');
+    for (const id of ['exit', 'dns', 'rtc']) summary(id, T('Checking…', '正在检测…'));
     try {
       const session = await json(run, '/session', { method: 'POST' });
       if (active !== run) return;
@@ -204,15 +297,22 @@
           session.stun !== 'stun:ns.tokenclock.ailyre.com:3478') throw new Error('response');
       addresses('exitAddresses', [{ address: session.ip, tag: 'HTTPS / IPv' + family(session.ip) }], '');
       badge('exitBadge', 'observed');
+      summary('exit', T('This is the public IP currently seen by websites.', '这是网站目前看到的公网出口。'));
       const [dnsResult, rtc, diagnostics] = await Promise.all([dns(run, session), gather(run, session.stun),
         window.TokenClockDiagnostics.start(run.id, session.ip, run.controller.signal, session.token)]);
       if (active !== run) return;
-      last = { resolvers: dnsResult.resolvers.filter(x => ip(x)), rtc, ip: session.ip };
-      addresses('dnsAddresses', last.resolvers.map(address => ({ address, tag: T('Resolver', '查询来源') })), T('No authoritative queries observed.', '未观测到权威 DNS 查询。'));
+      const resolvers = [...new Set(dnsResult.resolvers.map(ip).filter(Boolean))];
+      let locations = (diagnostics.rows || []).filter(x => x.category === 'dnsGeo');
+      if (!locations.length && resolvers.length) {
+        locations = await window.TokenClockDiagnostics.resolveDNSLocations(resolvers, run.controller.signal);
+        if (active !== run) return;
+        diagnostics.rows = [...(diagnostics.rows || []), ...locations];
+      }
+      last = { resolvers, rtc, ip: session.ip, locations, dnsComplete: dnsResult.probesObserved >= 3 };
       renderDNS();
       const tags = { public: T('Public', '公网'), local: T('Local / special', '内网 / 特殊地址'), mdns: T('Local IP hidden', '内网 IP 已隐藏'), relay: T('Relay', '中继') };
       addresses('rtcAddresses', rtc.found.map(x => ({ address: x.address, tag: tags[x.kind] })), T('No address candidates available.', '没有获取到可用候选地址。'));
-      badge('rtcBadge', rtcVerdict(session.ip, rtc.found, rtc.complete));
+      renderRTC(diagnostics);
       window.TokenClockDiagnostics.render(diagnostics, session.ip, rtc.found);
       $('idle').textContent = T('Check finished', '本次检测完成');
       $('idleHint').textContent = T('No probes are running. Results apply to this check only.', '探测已停止，结果仅代表本次检测。');
@@ -236,7 +336,7 @@
   $('expected').oninput = renderDNS;
   $('browser').onclick = () => { location.href = 'tokenclock-network-browser://open'; };
   window.addEventListener('pagehide', stop);
-  window.TokenClockLeak = { stop, normalizeIP: ip, receiveDiagnostics: data => window.TokenClockDiagnostics?.receive(data) };
+  window.TokenClockLeak = { stop, snapshot:()=>last, normalizeIP: ip, isPublicIP: isPublic, renderRTC, receiveDiagnostics: data => window.TokenClockDiagnostics?.receive(data) };
   for (const key of ['exitBadge', 'dnsBadge', 'rtcBadge']) badge(key, 'idle');
   if (location.hash === '#run') { history.replaceState(null, '', location.pathname + location.search); start(); }
 })();

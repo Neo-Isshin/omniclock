@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { ip, isPublic, candidate, rtcVerdict, dnsVerdict } = require('./probe.js');
+const { ip, isPublic, candidate, rtcAssessment, rtcVerdict, dnsVerdict } = require('./probe.js');
 assert.equal(ip('1.2.3.999'), null);
 assert.equal(ip('bad.local'), null);
 assert.equal(ip('2001:4860:4860:0:0:0:0:8888'), '2001:4860:4860::8888');
@@ -9,10 +9,10 @@ assert.deepEqual(candidate({ candidate: 'candidate:1 1 udp 123 1.1.1.1 777 typ s
 assert.equal(candidate({ address: 'a.local' }).kind, 'mdns');
 assert.equal(candidate({ address: '8.8.8.8', type: 'relay' }).kind, 'relay');
 assert.equal(rtcVerdict('1.1.1.1', [], true), 'incomplete');
-assert.equal(rtcVerdict('1.1.1.1', [{ kind: 'local', address: '192.168.1.1' }], true), 'incomplete');
+assert.equal(rtcVerdict('1.1.1.1', [{ kind: 'local', address: '192.168.1.1' }], true), 'review');
 assert.equal(rtcVerdict('1.1.1.1', [{ kind: 'public', address: '8.8.8.8' }], true), 'risk');
 assert.equal(rtcVerdict('1.1.1.1', [{ kind: 'public', address: '1.1.1.1' }], true), 'match');
-assert.equal(rtcVerdict('1.1.1.1', [{ kind: 'public', address: '1.1.1.1' }], false), 'review');
+assert.equal(rtcVerdict('1.1.1.1', [{ kind: 'public', address: '1.1.1.1' }], false), 'incomplete');
 assert.equal(rtcVerdict('1.1.1.1', [{ kind: 'public', address: '2001:4860::1' }], true), 'review');
 assert.equal(dnsVerdict([], '1.1.1.1'), 'incomplete');
 assert.equal(dnsVerdict(['1.1.1.1'], ''), 'review');
@@ -44,11 +44,41 @@ assert.equal(aiVerdict('1.1.1.1',{state:'observed',ip:'8.8.8.8'}), 'review');
 console.log('Exit, country, IPv6 and AI route checks passed');
 
 const {dohVerdict,overall}=require('./diagnostics.js');
-assert.equal(dohVerdict('1.1.1.1',[{category:'doh',state:'verified'}]),'incomplete');
-assert.equal(dohVerdict('1.1.1.1',[{category:'dohEcho',state:'observed',ip:'8.8.8.8'}]),'review');
+assert.equal(dohVerdict('1.1.1.1',[{category:'doh',state:'verified'}]),'partial');
+assert.equal(dohVerdict('1.1.1.1',[{category:'dohEcho',state:'observed',ip:'8.8.8.8'}]),'risk');
 assert.equal(dohVerdict('1.1.1.1',[{id:'ailyre',proxy:true},{category:'doh',state:'verified',proxy:false}]),'review');
-assert.equal(dohVerdict('1.1.1.1',[{id:'ailyre',proxy:false},{category:'doh',state:'verified',proxy:false}]),'incomplete');
+assert.equal(dohVerdict('1.1.1.1',[{id:'ailyre',proxy:false},{category:'doh',state:'verified',proxy:false}]),'partial');
 assert.deepEqual(overall({dns:'risk',doh:'review',ipv6:'notObserved',rtc:'match'}),{risk:['dns'],review:['doh'],unknown:['ipv6']});
 const html=require('fs').readFileSync(__dirname+'/index.html','utf8');
 for(const id of ['dohTitle','dohBadge','dohAddresses','overallSummary'])assert(html.includes('id="'+id+'"'),id);
 console.log('DoH and summary checks passed');
+
+// Leak verdicts compare corresponding IPv4/IPv6 exits; private and relay data are distinct.
+assert.equal(ip('::ffff:8.8.8.8'),'8.8.8.8');
+assert.equal(isPublic('::ffff:8.8.8.8'),true);
+assert.equal(rtcVerdict('1.1.1.1',[{kind:'public',address:'2001:4860::1'}],true,[v6]),'match');
+assert.equal(rtcVerdict('1.1.1.1',[{kind:'public',address:'2001:4860::2'}],true,[v6]),'risk');
+assert.equal(rtcVerdict('1.1.1.1',[{kind:'relay',address:'8.8.8.8'},{kind:'mdns',address:'mDNS'}],true),'incomplete');
+assert.equal(rtcAssessment('1.1.1.1',[{kind:'local',address:'192.168.1.2'}],true).reason,'localAddressExposed');
+assert.equal(rtcAssessment('1.1.1.1',[{kind:'public',address:v6.ip}],true,[v6],true).reason,'unexpectedIPv6');
+assert.equal(rtcVerdict('1.1.1.1',[{kind:'public',address:'8.8.8.8'}],true,[{category:'exit',state:'observed',ip:'8.8.8.8'}]),'review');
+assert.equal(rtcVerdict(null,[{kind:'public',address:'1.1.1.1'}],true),'incomplete');
+const verifiedDoH=[{category:'doh',state:'verified',proxy:true},{category:'doh',state:'verified',proxy:true},{category:'dohEcho',state:'observed',ip:'1.1.1.1'}];
+assert.equal(dohVerdict('1.1.1.1',verifiedDoH),'match');
+assert.equal(dohVerdict('1.1.1.1',verifiedDoH.slice(0,2)),'partial');
+assert.equal(dohVerdict('1.1.1.1',[]),'incomplete');
+for(const id of ['exit','dns','rtc','consistency','ipv6','ai','doh'])assert(html.includes('id="'+id+'Summary"'),id);
+console.log('Leak verdicts, dual-stack comparison and per-card summaries passed');
+
+const {candidateAddresses}=require('./probe.js');
+assert.deepEqual(candidateAddresses({candidate:'candidate:1 1 udp 123 1.1.1.1 777 typ srflx raddr 192.168.1.7 rport 123'}),[{kind:'public',address:'1.1.1.1'},{kind:'local',address:'192.168.1.7'}]);
+assert.deepEqual(candidateAddresses({address:'8.8.8.8',type:'relay',relatedAddress:'1.1.1.1'}),[{kind:'relay',address:'8.8.8.8'},{kind:'public',address:'1.1.1.1'}]);
+assert.equal(candidate({address:'0.0.0.0',type:'host'}),null);
+assert.equal(candidate({address:'127.0.0.1',type:'host'}),null);
+assert.equal(dnsVerdict(['1.1.1.1'],'1.1.1.1',false),'incomplete');
+assert.equal(dnsVerdict(['8.8.8.8'],'1.1.1.1',false),'risk');
+console.log('Related ICE addresses and partial DNS coverage checks passed');
+
+assert.equal(dohVerdict('1.1.1.1',[{category:'dohEcho',state:'observed',ip:'10.0.0.1'},{category:'doh',state:'verified'}]),'partial');
+assert.equal(ipv6Verdict([{category:'ipv6',state:'observed',ip:'fd00::1'}],[],true),'notObserved');
+console.log('Private addresses cannot become public-exit leak evidence');
