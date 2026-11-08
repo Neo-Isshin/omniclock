@@ -2,203 +2,193 @@
 
 [简体中文](README.zh-CN.md) · **English**
 
-# 🕰️ TokenClock
+# 🕰️ OmniClock
 
-**A beautiful desktop clock for seeing your AI coding usage at a glance.**
+**AI usage, subscription quotas, news, reminders, and practical tools—on your desktop.**
 
-[![macOS 12+](https://img.shields.io/badge/macOS-12%2B-000000?style=for-the-badge&logo=apple&logoColor=white)](#macos-and-linux)
-[![macOS 26+](https://img.shields.io/badge/macOS%2026-Liquid%20Glass-00B0F0?style=for-the-badge)](#macos-and-linux)
-[![macOS 27 Beta 5](https://img.shields.io/badge/macOS%2027-Beta%205%20Supported-8A2BE2?style=for-the-badge&logo=apple&logoColor=white)](#macos-and-linux)
-[![Windows normal](https://img.shields.io/badge/Windows-normal-0078D4?style=for-the-badge&logo=windows&logoColor=white)](#windows)
-[![Linux normal](https://img.shields.io/badge/Linux-normal-FCC624?style=for-the-badge&logo=linux&logoColor=black)](#macos-and-linux)
+[![Downloads](https://img.shields.io/badge/Downloads-Ailyre-10B981?style=for-the-badge)](https://www.ailyre.com/omniclock/releases/)
+[![macOS 12+](https://img.shields.io/badge/macOS-12%2B-000000?style=for-the-badge&logo=apple&logoColor=white)](#platforms)
+[![Liquid Glass](https://img.shields.io/badge/macOS%2026%2B-Liquid%20Glass-00B0F0?style=for-the-badge&logo=apple&logoColor=white)](#platforms)
+[![Windows](https://img.shields.io/badge/Windows-11-0078D4?style=for-the-badge)](#windows)
+[![Linux](https://img.shields.io/badge/Linux-GTK3%20AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black)](#platforms)
 
-[![Swift 6](https://img.shields.io/static/v1?label=Swift&message=6&color=F05138&logo=swift&logoColor=white)](https://www.swift.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Releases](https://img.shields.io/badge/releases-GitHub-181717?logo=github&logoColor=white)](https://github.com/Neo-Isshin/TokenClock/releases)
+[![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](https://www.swift.org/)
+[![MIT License](https://img.shields.io/badge/License-MIT-3B82F6.svg)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/Neo-Isshin/omniclock?style=social)](https://github.com/Neo-Isshin/omniclock)
 
 </div>
 
 <div align="center">
-
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/glass_en.png" alt="TokenClock Liquid Glass" width="300"><br><sub><b>Liquid Glass</b> · macOS 26+</sub></td>
-    <td align="center"><img src="docs/screenshots/normal_en.png" alt="TokenClock normal" width="300"><br><sub><b>Normal</b> · macOS, Windows, Linux</sub></td>
+    <td align="center" valign="bottom"><img src="https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/docs/screenshots/glass.png" alt="Liquid Glass clock" width="220"><br><sub><b>Liquid Glass</b><br>A glanceable desktop overview</sub></td>
+    <td align="center" valign="bottom"><img src="https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/docs/screenshots/dropdown.png" alt="Usage details" width="230"><br><sub><b>Usage details</b><br>Tools, sessions, and models</sub></td>
+    <td align="center" valign="bottom"><img src="docs/screenshots/normal_en.png" alt="Normal clock edition" width="220"><br><sub><b>Normal</b><br>Theme-aware native presentation</sub></td>
   </tr>
 </table>
-
 </div>
 
-TokenClock is a small, always-on-top clock for your desktop. It combines the time with today's token usage, message count, active AI tools, weather, and usage pace—without making you open several dashboards.
+---
 
-Click the clock for session and model details. Right-click it to change the face, size, city, timezone, language, transparency, and other preferences.
+**OmniClock**, formerly **TokenClock**, brings the everyday details of working with AI into one desktop companion. The clock shows activity and selected quotas; its panels provide usage history, costs, a notebook, AI news, and local or network diagnostics.
 
-## What you get
+The repository retains its history. The primary macOS/Linux command is now `omniclock`; existing `tokenclock` commands remain compatible. This rename keeps the current release versions: **v1.6.3 for macOS and Linux**, and the previous verified **v1.5.12 Windows build**. It does not announce a v1.0.0 application release.
 
-- **15+ AI coding tools in one place.** TokenClock finds their local usage data automatically and lets you correct a path in Settings when needed.
-- **A clearer usage total.** Reused prompt-cache reads stay out of the main number, while new input, cache creation, output, and reasoning still count.
-- **8 carefully designed clock faces.** Glass, Classic, Glacier, Midnight, Luxe, Antique, Railgun, and Sky, plus saved custom faces.
-- **Useful details without leaving the desktop.** Group usage by session or model, expand individual rows, and sort by percentage.
-- **API-equivalent cost.** Today's token usage converted to USD at current public API rates (LiteLLM catalog with official-provider overrides, refreshed weekly). This is not a subscription bill; custom proxy models can be priced manually in Settings.
-- **Subscription quotas in one panel.** View Codex, Claude Code, Antigravity, Cursor, and Zhipu GLM limits and reset times when those local accounts are available. Cursor Models and Other Models are shown separately; signed-out services stay hidden.
-- **Weather without a location permission popup.** Automatic weather uses an approximate city from your public IP, or you can choose a city yourself.
-- **A native experience on each platform.** macOS uses SwiftUI/AppKit, Windows uses Win32, and Linux uses GTK3. The workflow is shared while controls keep their native appearance.
-- **Hide the widget in one click.** On macOS, use the menu-bar gauge to hide or restore TokenClock. On Windows, choose **Hide TokenClock** from the clock's right-click menu and click the tray icon to bring it back.
+## Features
 
-## Platform support
+| Area | What you can do |
+|---|---|
+| **Desktop overview** | See today's tokens, messages, active tools, weather, and subscription rings. Choose a theme, size, and optional always-on-top behavior. |
+| **Usage and API-equivalent cost** | Explore harnesses, sessions, and models; switch the cache-read basis; inspect cost estimates and supported Fast/Priority breakdowns. Recent generation speed refreshes every three minutes. |
+| **Subscription quotas** | Review supported provider accounts, remaining allowances and reset times. Select up to four providers, displayed two at a time. Configure renewal reminders 1, 2, 3, or 7 days before a known or manually entered renewal date. |
+| **History and sharing** | Browse the last 30 days or a date range. A single-day range shows hourly usage. Export a share image for a day, recent days, a month, or a calendar week, with optional cache reads and selectable artwork. |
+| **AI digest and notebook** | Read Ailyre's AI digest with provider logos and topic labels. Keep plain-text notes and timed reminders. Digest refreshes every two hours; application update checks run every twelve hours. |
+| **Network Toolbox** | Run DNS/DoH, WebRTC, IPv6, exit-IP/location, AI-domain routing, and mainland-reachability reference checks on demand. Results distinguish possible issues from inconclusive checks. |
+| **Local Toolbox and Model Detect** | Inspect environment conflicts and disk use, scan logs locally for exposed secrets, check clock offset, and validate configured API keys with masked results. Model Detect reviews available session evidence and supports explicitly initiated external checks. |
 
-| Platform | Edition | Notes |
+The macOS summary panel brings together hourly usage, comparison with yesterday, cache use, quota reset times, the notebook, and tool/model lists. Shortcut visibility and order are editable. Linux provides corresponding functions through its native menus and panels; some checks open the browser.
+
+## Platforms
+
+| Platform | Edition | Current distribution |
 |---|---|---|
-| macOS 26+ | Liquid Glass + Normal | Universal Apple Silicon/Intel build; supports macOS 27 Beta 5 |
-| macOS 12–25 | Normal | Classic opaque desktop widget |
-| Windows 11 x86_64 | Normal | Per-user install; no administrator rights required |
-| Linux x86_64 | Normal | Prebuilt GTK3 AppImage; glibc 2.35+ |
+| macOS 26+ | Glass or Normal | v1.6.3 universal packages for Apple Silicon and Intel |
+| macOS 12–25 | Normal | v1.6.3 universal package; opaque themed dial |
+| Linux x86_64 | Normal, GTK3/Cairo | v1.6.3 AppImage; glibc 2.35+; extraction fallback when FUSE is unavailable |
+| Windows 11 x86_64 | Normal, Win32 | Previous verified v1.5.12 package; newer feature parity and binaries await testing on the project's own Windows machine |
 
-## Install
+Glass has its own transparent materials and optical effects. Normal keeps its own themes and contrast rules. In Normal, the quick **Text Color** control affects the detail panel; dial text has a separate appearance setting.
+
+Windows does **not** yet include every feature listed for current macOS/Linux builds. New Windows packages are not published until native validation resumes. Project tests run locally or on project-owned machines, not GitHub Actions.
+
+## Installation
 
 ### macOS and Linux
 
-Paste this into Terminal:
-
 ```bash
-curl -fsSL https://www.ailyre.com/tokenclock/install.sh | bash
+curl -fsSL https://www.ailyre.com/omniclock/install.sh | bash
 ```
 
-The installer chooses the right edition, verifies downloaded builds, starts TokenClock, and installs the small `tokenclock` helper command.
-
-Useful commands after installation:
+The installer selects the supported edition, verifies package checksums, and installs both commands:
 
 ```bash
-tokenclock doctor
-tokenclock restart
+omniclock doctor
+omniclock start --normal
+omniclock restart
+omniclock update
+omniclock update --check
+```
+
+`update --check` downloads the current installer without installing or restarting anything. Use `--glass` or `--normal` when you want a specific macOS edition. `omniclock uninstall` removes the installed runtime; the CLI commands are retained for reinstalling.
+
+#### Existing TokenClock installations
+
+Your old command remains valid:
+
+```bash
 tokenclock update
-tokenclock uninstall
+# After the CLI update, either name works:
+omniclock doctor
+tokenclock doctor
 ```
 
-On Linux, the installer automatically uses extraction mode when FUSE 2 is unavailable; no `sudo` dependency install is required.
+The new installer installs `omniclock` as the main implementation and `tokenclock` as a forwarding entry point. Both use the same installation and settings. Existing `TOKENCLOCK_*` environment overrides, `~/.tokenclock`, application identifiers, and executable names remain compatible. There is no second copy of your usage history to maintain.
+
+The previous `https://www.ailyre.com/tokenclock/install.sh` address remains available. If you install the CLI manually from this repository, install both files together into the same directory on your `PATH`.
+
+macOS may request permission to access protected or external-disk folders. Current ad-hoc-signed packages do not guarantee that permissions carry across binary updates.
 
 ### Windows
 
-Paste this into PowerShell:
-
 ```powershell
-& ([scriptblock]::Create((irm https://www.ailyre.com/tokenclock/install.ps1)))
+& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1)))
 ```
 
-TokenClock installs for the current user under `%LOCALAPPDATA%\Programs\TokenClock`. It verifies the release checksum and does not enable autostart or create shortcuts unless you ask it to.
-
-Windows may show a reputation warning for an unsigned first release. Check that the publisher source is this repository before continuing.
+This installs the existing verified Windows package for the current user, with SHA-256 verification. The installation path and executable retain the TokenClock name for compatibility. The `omniclock`/`tokenclock` shell commands described above apply to macOS and Linux.
 
 <details>
-<summary>Optional Windows installer choices</summary>
+<summary>Windows installer options</summary>
 
 ```powershell
-# Install without starting, and add a Start Menu shortcut
-& ([scriptblock]::Create((irm https://www.ailyre.com/tokenclock/install.ps1))) -NoStart -StartMenuShortcut
+# Install without launching; optionally create a Start Menu shortcut.
+& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1))) -NoStart -StartMenuShortcut
 
-# Check the current installation
-& ([scriptblock]::Create((irm https://www.ailyre.com/tokenclock/install.ps1))) -Action Check
+# Inspect installation state.
+& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1))) -Action Check
 
-# Uninstall while keeping your settings
-& ([scriptblock]::Create((irm https://www.ailyre.com/tokenclock/install.ps1))) -Action Uninstall
+# Uninstall while retaining Windows user settings.
+& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1))) -Action Uninstall
 ```
 
 </details>
 
 ## Everyday use
 
-- **Left-click the clock:** show or hide usage details.
-- **Hide or restore the widget:** use the menu-bar gauge on macOS; on Windows, choose **Hide TokenClock** and restore it from the system tray.
-- **Subscription Quota:** show Codex, Claude Code, Antigravity, Cursor, and Zhipu GLM limits and reset times.
-- **API-equivalent column:** estimated USD value at public API rates, not the amount charged by a subscription (customize proxy prices in Settings).
-- **By Session / By Model:** change how details are grouped.
-- **By Percent:** compare which tools consumed the most.
-- **Click a detail row:** expand its sessions or models.
-- **Right-click the clock:** open faces, sizes, display preferences, refresh, Settings, About, and Quit.
-- **Drag the clock:** place it anywhere on your desktop; its position is remembered.
+- **Click the dial** to open usage details. Expand a tool, session, or model to inspect its contributions.
+- **Use the first-row shortcuts** for tools and history. The shortcut editor controls visibility and order.
+- **Switch to AI digest** to read news within the lower part of the dropdown; use Back to return to usage.
+- **Open Subscription Quota** to select providers and accounts for the dial. Click a ring to advance when multiple groups are available; right-click it to open the quota panel.
+- **On macOS, click the menu-bar icon** for today's summary. Double-click to bring the dial temporarily forward or hide it; the right-click menu also provides visibility controls.
+- **Right-click the dial** for general and appearance settings, source paths, notifications, updates, and restart.
 
-Settings includes automatic detection, tool switches, custom data paths, rate thresholds, the local API, and custom clock faces. Available rows may differ slightly by platform.
+The detail panel supports horizontal resizing, and notifications support resizing in both directions. On some nonactivating macOS panels, the pointer may remain an arrow at a resizable edge; the bottom resize handle remains available.
 
-## Supported tools
+## Supported data sources
 
-| | | |
-|---|---|---|
-| OpenClaw | Claude Code | Gemini CLI |
-| Codex | Hermes | OpenCode |
-| Qwen Code | GitHub Copilot CLI | Grok CLI |
-| Aider | Antigravity | Cline |
-| Continue | Cursor Agent | ZCode |
+Current macOS/Linux sources cover Codex, Claude Code, Cursor Agent, Grok Bot, Antigravity, OpenClaw, Gemini CLI, Hermes, OpenCode, Qwen Code, Copilot CLI, Grok CLI, Aider, Cline, Continue, ZCode, Kilo Code, Pi, OMP, PiG, DSH, Command Code, and Freebuff, subject to the records each tool actually saves.
 
-Most tools need no setup. If a tool stores data somewhere unusual, open **Settings → Data Source Paths** and choose its folder or file.
+- Custom paths and external disks can be selected in **Settings → Data Source Paths**.
+- Freebuff exposes completed local reply counts, not token receipts; these counts are excluded from token and API-equivalent cost totals.
+- Cloud-only chat activity is not converted into invented token estimates.
+- Speed and TTFT appear only when the source contains suitable timing evidence. Missing values remain unavailable.
+- Quota cards reuse available saved quota records or permitted sign-ins. Some accounts require a user-initiated connection or authorization. A shared subscription is deduplicated only when sharing is confirmed.
 
-Windows also offers optional Kiro session-contract detection and experimental CodeBuddy current-session statistics.
+See [additional harnesses](https://github.com/Neo-Isshin/omniclock/blob/main/docs/ADDITIONAL_HARNESSES.md), [hourly history](docs/HOURLY_HISTORY.md), and [subscription billing](docs/SUBSCRIPTION_BILLING.md) for details.
+
+## Accounting and privacy
+
+The main token figure excludes cache reads by default; you can include them explicitly. Cache writes, output, and reasoning follow the source's recorded accounting rules. API-equivalent cost uses the [Ailyre pricing catalog](https://www.ailyre.com/prices/tokenclock.json), with user overrides supported. It is an estimate at public API rates, **not a subscription bill**.
+
+Usage collection reads local logs and databases without modifying the harness's records. Quota, weather, news, and user-triggered network checks contact their respective services. Local secret scans stay on the device. API-key checks send credentials only to the paired configured endpoint and mask them in results. External Model Detect checks require confirmation of their scope and cost; their results are evidence, not proof of model identity.
+
+A successful network probe is not a guarantee that every app or route is leak-free. Mainland reachability results are references; an ordinary timeout is not reported as proof of GFW blocking.
+
+## Local API
+
+When enabled, the read-only HTTP API binds to loopback:
+
+```bash
+curl http://127.0.0.1:9988/api/usage
+curl 'http://127.0.0.1:9988/api/history?days=30'
+```
+
+The port is configurable. API-equivalent costs carry `costBasis: "api_equivalent_public_list"`.
 
 ## Screenshots
 
 <div align="center">
-
+<p><img src="https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/docs/screenshots/usage_overview.png" alt="Usage history" width="780"></p>
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/dropdown_en.png" alt="Usage details" width="300"><br><sub>Usage details</sub></td>
-    <td align="center"><img src="docs/screenshots/themes_en.png" alt="Clock face picker" width="300"><br><sub>Clock face picker</sub></td>
-    <td align="center"><img src="docs/screenshots/normal_full_en.png" alt="TokenClock normal edition" width="300"><br><sub>Normal edition</sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/docs/screenshots/subscription_quota.png" alt="Subscription quota panel" width="460"></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/docs/screenshots/themes.png" alt="Theme selection" width="280"></td>
   </tr>
 </table>
-
 </div>
 
-## Privacy
-
-- Token and session totals are read from files already stored by your AI tools. TokenClock does not upload those logs or totals.
-- The optional local API listens only on `127.0.0.1`.
-- Automatic weather contacts the configured weather/IP services to estimate a city. It does not request macOS Location Services permission.
-- Subscription Quota runs only when you open its panel. It uses each installed tool's local signed-in service or saved credentials when available; TokenClock does not ask you to paste account secrets.
-- Cursor cloud usage is optional. When enabled, it contacts Cursor's service using the credentials already stored by Cursor; leave it off if you only want local data.
-
-## Local API (optional)
-
-TokenClock can expose read-only JSON for personal scripts and dashboards:
-
-```text
-http://127.0.0.1:9988/api/usage
-http://127.0.0.1:9988/api/history?days=30
-```
-
-The server is loopback-only, so other computers cannot connect to it directly.
-Cost-bearing responses include `"costBasis": "api_equivalent_public_list"` so clients do not mistake estimates for subscription billing.
-
-## Troubleshooting
-
-- **A tool shows zero:** use Re-detect in Settings, then check its Data Source Path. The tool must have created at least one local session first.
-- **A subscription quota is unavailable:** make sure the corresponding tool is installed and signed in, then retry from the quota panel. Some providers may not expose quota data on every plan or platform.
-- **Weather is unavailable:** choose a city manually or check whether `wttr.in` is reachable from your network.
-- **Linux AppImage does not start:** run `tokenclock doctor`, then reinstall. On systems without FUSE 2, the launcher automatically uses extraction mode and does not require `sudo`.
-- **Something is using too much CPU:** update and restart TokenClock. Recent builds avoid repeatedly scanning old Codex and Gemini histories.
-- **Still stuck:** run `tokenclock doctor` on macOS/Linux, or open a [GitHub issue](https://github.com/Neo-Isshin/TokenClock/issues) with your platform and TokenClock version.
-
-## Build from source
-
-Most people should use the installers above. For contributors:
+## Development and help
 
 ```bash
-git clone https://github.com/Neo-Isshin/TokenClock.git
-cd TokenClock
-swift build -c release
+git clone https://github.com/Neo-Isshin/omniclock.git
+cd omniclock
 ```
 
-The Normal edition shares its features across macOS, Windows, and Linux while keeping native controls and platform-specific data paths. Liquid Glass remains a separate macOS presentation built on the same usage core.
+`main` contains macOS Glass, `normal` contains macOS Normal, and `codex/linux-theme-parity` contains the current Linux edition. Internal Swift targets and bundle names retain `TokenClock` for compatibility. See [platform behavior](PLATFORM_PARITY.md) and [Model Detect integration](https://github.com/Neo-Isshin/omniclock/blob/main/docs/MODEL_DETECT_INTEGRATION.md) before changing shared components.
 
-## License
+Run `omniclock doctor` first if an installation is not behaving as expected. For missing usage, check that the selected source path contains real usage records. For quota failures, distinguish a missing local record, permission request, expired sign-in, and provider-side rejection.
 
-TokenClock is open-sourced under the **[MIT License](LICENSE)** — © 2026 Neo-Isshin.
+[Report an issue](https://github.com/Neo-Isshin/omniclock/issues) · [Gitea mirror](https://gitea.nxc8335.cloud/nxc8335/omniclock) · [Ailyre](https://www.ailyre.com/)
 
-## Acknowledgments
+## License and acknowledgements
 
-- [Swift](https://www.swift.org/) and SwiftUI/AppKit
-- GTK and Cairo for the Linux normal edition
-- The AI coding tools whose local data formats make this overview possible
-- Everyone who reports issues, tests new platforms, and improves TokenClock
-
-### Additional local harnesses
-
-Kilo Code (CLI and legacy VS Code records), Pi, OMP / Oh My Pi, and Command Code now have local token readers. Freebuff shows completed local responses, not inferred tokens or subscription quota. Hermes uses its bundled black-and-white portrait. See [source formats and limitations](docs/ADDITIONAL_HARNESSES.md).
+[MIT](LICENSE). Bundled third-party libraries and artwork retain their own licenses and attribution. Ailyre supplies the digest, pricing catalog, and network-check page; network tools also use services including Cloudflare, Google, and Globalping where indicated in the interface. OmniClock is an independent project and is not an official client of the supported AI providers.
