@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# install.sh — TokenClock one-shot installer
+# install.sh — OmniClock installer
 #
 # Automatically: check the environment → select the supported variant
 #      (macOS 26+: Liquid Glass + normal / macOS 12+: normal / Linux: normal)
-#      → install to ~/.tokenclock → install the tokenclock CLI → launch.
+#      → reuse ~/.tokenclock → install omniclock + tokenclock compatibility CLI → launch.
 #
 # Usage:
 #   ./cli/install.sh              # auto-detect variant · download prebuilt binary by default · launch when done
@@ -15,7 +15,7 @@
 #   ./cli/install.sh --build-from-source  # skip the prebuilt download, force a local swift build
 #
 # One-liner:
-#   curl -fsSL https://www.ailyre.com/tokenclock/install.sh | bash
+#   curl -fsSL https://www.ailyre.com/omniclock/install.sh | bash
 #
 # Environment variables to override defaults:
 #   TOKENCLOCK_REPO     git repository URL            (default: repo origin)
@@ -26,14 +26,14 @@
 set -uo pipefail
 export LC_ALL=C      # kept for portability: bash 3.2 in a UTF-8 locale can fold a multibyte character directly after $var into the variable name; the C locale parses by byte and avoids that. ASCII-only strings are unaffected either way.
 
-DEFAULT_REPO="https://gitea.nxc8335.cloud/nxc8335/tokenclock.git"
+DEFAULT_REPO="https://gitea.nxc8335.cloud/nxc8335/omniclock.git"
 REPO_URL="${TOKENCLOCK_REPO:-$DEFAULT_REPO}"
 HOME_DIR="${TOKENCLOCK_HOME:-$HOME/.tokenclock}"
 BIN_DIR="${TOKENCLOCK_BIN_DIR:-$HOME/.local/bin}"
 BUILD_DIR="${TOKENCLOCK_BUILD:-$HOME_DIR/src}"
 # Update source (cmd_update fetches this URL; the tokenclock wrapper defaults to the same value)
-INSTALL_URL="${TOKENCLOCK_INSTALL_URL:-https://www.ailyre.com/tokenclock/install.sh}"
-SOURCE_BASE="${TOKENCLOCK_SOURCE_BASE:-https://www.ailyre.com/tokenclock/sources}"
+INSTALL_URL="${TOKENCLOCK_INSTALL_URL:-https://www.ailyre.com/omniclock/install.sh}"
+SOURCE_BASE="${TOKENCLOCK_SOURCE_BASE:-https://www.ailyre.com/omniclock/sources}"
 
 CONFIG="release"
 VARIANT=""          # "" = auto-select by platform / macOS version
@@ -171,7 +171,7 @@ case "$KERNEL" in
     fi
     ;;
   *)
-    die "Unsupported platform: $KERNEL (TokenClock supports macOS and Linux)."
+    die "Unsupported platform: $KERNEL (OmniClock supports macOS and Linux)."
     ;;
 esac
 
@@ -310,7 +310,7 @@ release_tag_for_variant() {
 }
 release_base_for_tag() {
   local tag="$1"
-  echo "${TOKENCLOCK_RELEASE_BASE:-https://www.ailyre.com/tokenclock/releases/download/$tag}"
+  echo "${TOKENCLOCK_RELEASE_BASE:-https://www.ailyre.com/omniclock/releases/download/$tag}"
 }
 
 # variant → tarball filename / expected SHA256 (bash 3.2 has no associative arrays, so use case)
@@ -332,7 +332,7 @@ tarball_sha256() {
 # Temp dirs are tracked in DOWNLOAD_TMPDIRS and cleaned up on exit.
 DL_DIR=""
 DOWNLOAD_TMPDIRS=()
-trap '[ "${#DOWNLOAD_TMPDIRS[@]}" -gt 0 ] && rm -rf "${DOWNLOAD_TMPDIRS[@]}" 2>/dev/null; [ -n "${WRAPPER_TMP:-}" ] && rm -f "$WRAPPER_TMP" 2>/dev/null; true' EXIT
+trap '[ "${#DOWNLOAD_TMPDIRS[@]}" -gt 0 ] && rm -rf "${DOWNLOAD_TMPDIRS[@]}" 2>/dev/null; [ -n "${WRAPPER_TMP:-}" ] && rm -f "$WRAPPER_TMP" 2>/dev/null; [ -n "${COMPAT_TMP:-}" ] && rm -f "$COMPAT_TMP" 2>/dev/null; true' EXIT
 download_variant() {
   local variant="$1" name expect tag base url tmp got
   name="$(tarball_name "$variant")"
@@ -486,48 +486,66 @@ for entry in "${BUILT_BINS[@]}"; do
   fi
 done
 
-# ── 6. Install the tokenclock CLI ──
-step "Installing tokenclock CLI"
-mkdir -p "$BIN_DIR"
-# CLI wrapper source: prefer an already-cloned source tree (build path), otherwise curl it from raw
-# (download path, no git dependency). Both branches ship an identical cli/tokenclock, so raw pulls from main.
-# Record the old wrapper SHA, compare after deploy → WRAPPER_CHANGED (only used to report "CLI updated"
-# from update; it does not trigger an app restart — the wrapper and the running clock binary are independent).
-WRAPPER_OLD_SHA=""
-[ -f "$BIN_DIR/tokenclock" ] && WRAPPER_OLD_SHA="$(sha256_file "$BIN_DIR/tokenclock" 2>/dev/null)"
-# Atomic deploy: write to a temp file first, then mv into place. tokenclock update invokes this script
-# via the wrapper, so the "running wrapper" IS $BIN_DIR/tokenclock; an in-place cp/curl would make bash
-# keep reading the new file from the wrong offset → executing comments/fragments ("command not found" +
-# syntax errors). mv swaps the inode; the old process keeps reading the old inode undisturbed.
-WRAPPER_TMP="$BIN_DIR/.tokenclock.new.$$"
-WRAPPER_OK=0
-for b in "${BRANCHES[@]}"; do
-  if [ -f "$BUILD_DIR/$b/cli/tokenclock" ]; then
-    cp "$BUILD_DIR/$b/cli/tokenclock" "$WRAPPER_TMP"
-    WRAPPER_OK=1
-    say "  ✓ $BIN_DIR/tokenclock (source: $b/cli)"
-    break
+# ── 6. Install OmniClock and the legacy command ──
+# BEGIN OMNICLOCK CLI INSTALL
+install_cli_commands() {
+  local old_primary_sha="" old_compat_sha="" new_primary_sha new_compat_sha b
+  step "Installing omniclock CLI (tokenclock remains compatible)"
+  mkdir -p "$BIN_DIR" || die "Cannot create CLI directory: $BIN_DIR"
+  [ ! -f "$BIN_DIR/omniclock" ] || old_primary_sha="$(sha256_file "$BIN_DIR/omniclock")"
+  [ ! -f "$BIN_DIR/tokenclock" ] || old_compat_sha="$(sha256_file "$BIN_DIR/tokenclock")"
+  WRAPPER_TMP="$(mktemp "$BIN_DIR/.omniclock.new.XXXXXX")" || die "Cannot stage omniclock CLI"
+  COMPAT_TMP="$(mktemp "$BIN_DIR/.tokenclock.new.XXXXXX")" || die "Cannot stage compatibility command"
+  WRAPPER_OK=0
+  for b in "${BRANCHES[@]}"; do
+    if [ -f "$BUILD_DIR/$b/cli/omniclock" ]; then
+      cp "$BUILD_DIR/$b/cli/omniclock" "$WRAPPER_TMP" || die "Cannot stage omniclock CLI"
+      WRAPPER_OK=1
+      break
+    fi
+  done
+  if [ "$WRAPPER_OK" -eq 0 ]; then
+    WRAPPER_URL="${INSTALL_URL%/*}/omniclock"
+    if ! curl -fL --retry 6 --retry-delay 2 --retry-all-errors --connect-timeout 15 \
+          -o "$WRAPPER_TMP" "$WRAPPER_URL" 2>/dev/null || [ ! -s "$WRAPPER_TMP" ]; then
+      die "Downloading $WRAPPER_URL failed; existing CLI commands were preserved"
+    fi
   fi
-done
-if [ "$WRAPPER_OK" -eq 0 ]; then
-  WRAPPER_URL="${INSTALL_URL%/*}/tokenclock"   # .../raw/main/cli/tokenclock
-  if curl -fL --retry 6 --retry-delay 2 --retry-all-errors --connect-timeout 15 \
-        -o "$WRAPPER_TMP" "$WRAPPER_URL" 2>/dev/null \
-     && [ -s "$WRAPPER_TMP" ]; then
-    say "  ✓ $BIN_DIR/tokenclock (source: raw)"
-  else
-    rm -f "$WRAPPER_TMP"
-    die "cli/tokenclock not found (not cloned locally, and downloading $WRAPPER_URL failed)"
-  fi
+  cat > "$COMPAT_TMP" <<'OMNICLOCK_COMPAT_ENTRY'
+#!/usr/bin/env bash
+# Compatibility entry point. Keep arguments, exit status and signal handling intact.
+compat_dir="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)" || exit 1
+compat_command="$compat_dir/omniclock"
+if [ ! -x "$compat_command" ]; then
+  compat_command="$(command -v omniclock 2>/dev/null || true)"
 fi
-chmod +x "$WRAPPER_TMP"
-mv -f "$WRAPPER_TMP" "$BIN_DIR/tokenclock"
-# Compare new vs old wrapper (on first install the old SHA is empty → treated as changed, but first
-# install does not go through the update path, so no side effects)
-WRAPPER_CHANGED=0
-WRAPPER_NEW_SHA="$(sha256_file "$BIN_DIR/tokenclock" 2>/dev/null)"
-[ "$WRAPPER_NEW_SHA" != "$WRAPPER_OLD_SHA" ] && WRAPPER_CHANGED=1
-export PATH="$BIN_DIR:$PATH"   # let later commands in this script use tokenclock directly
+if [ -z "$compat_command" ] || [ ! -x "$compat_command" ]; then
+  printf '%s\n' 'OmniClock CLI is missing. Reinstall with: curl -fsSL https://www.ailyre.com/omniclock/install.sh | bash' >&2
+  exit 127
+fi
+exec "$compat_command" "$@"
+OMNICLOCK_COMPAT_ENTRY
+  [ "$(head -n 1 "$WRAPPER_TMP")" = '#!/usr/bin/env bash' ] \
+    && bash -n "$WRAPPER_TMP" && bash -n "$COMPAT_TMP" \
+    || die "CLI validation failed; existing commands were preserved"
+  chmod 755 "$WRAPPER_TMP" "$COMPAT_TMP" || die "Cannot prepare CLI permissions"
+  new_primary_sha="$(sha256_file "$WRAPPER_TMP")"
+  new_compat_sha="$(sha256_file "$COMPAT_TMP")"
+  # Stage both before activation. Rename keeps an executing old wrapper on its
+  # original inode; activate the primary before the forwarding command.
+  mv -f "$WRAPPER_TMP" "$BIN_DIR/omniclock" || die "Cannot activate omniclock CLI"
+  mv -f "$COMPAT_TMP" "$BIN_DIR/tokenclock" || die "Cannot activate tokenclock compatibility command"
+  WRAPPER_TMP=""; COMPAT_TMP=""
+  WRAPPER_CHANGED=0
+  if [ "$new_primary_sha" != "$old_primary_sha" ] || [ "$new_compat_sha" != "$old_compat_sha" ]; then
+    WRAPPER_CHANGED=1
+  fi
+  say "  ✓ $BIN_DIR/omniclock"
+  say "  ✓ $BIN_DIR/tokenclock → omniclock"
+}
+# END OMNICLOCK CLI INSTALL
+install_cli_commands
+export PATH="$BIN_DIR:$PATH"
 
 # Report deploy status back to the caller (tokenclock update decides restart / just-notify / no-op from this):
 #   DEPLOYED     clock binary changed → the running clock needs a restart
@@ -766,8 +784,8 @@ if [ "$NO_START" -eq 1 ]; then
   say "  ⏭  Skipping auto-launch (--no-start)"
 else
   step "Launching $PRIMARY_VARIANT for the first time and scanning AI tool paths"
-  tokenclock stop >/dev/null 2>&1 || true                    # stop old instances to ensure the new binary is used
-  tokenclock start --"$PRIMARY_VARIANT" >/dev/null 2>&1 || die "Launch failed"
+  omniclock stop >/dev/null 2>&1 || true                    # stop old instances to ensure the new binary is used
+  omniclock start --"$PRIMARY_VARIANT" >/dev/null 2>&1 || die "Launch failed"
   say "  Started the $PRIMARY_VARIANT build"
   sleep 3                                                    # wait for the first scan
   enabled=""
@@ -814,10 +832,10 @@ step "Install complete · generating summary"
 
 # 1. Collect doctor output (PATH was exported in step 6, so tokenclock is callable directly)
 DOCTOR_OUT=""
-if command -v tokenclock >/dev/null 2>&1; then
-  DOCTOR_OUT="$(tokenclock doctor 2>&1 || true)"
+if command -v omniclock >/dev/null 2>&1; then
+  DOCTOR_OUT="$(omniclock doctor 2>&1 || true)"
 else
-  DOCTOR_OUT="(tokenclock is not on PATH; skipping doctor)"
+  DOCTOR_OUT="(omniclock is not on PATH; skipping doctor)"
 fi
 
 # 2. API status line
@@ -844,7 +862,7 @@ if [ "${#VARIANTS[@]}" -gt 1 ]; then
 fi
 
 cat <<EOF
-  CLI:    $BIN_DIR/tokenclock
+  CLI:    $BIN_DIR/omniclock (tokenclock compatibility entry included)
 EOF
 # Source: one line per cloned branch subdir (only when something was actually cloned — the download path may have no src)
 for branch in "${BRANCHES[@]}"; do
@@ -873,14 +891,14 @@ fi
 cat <<EOF
 
 Common commands (available after opening a new terminal):
-  tokenclock start [--glass|--normal]   start (auto-selects by platform/version)
-  tokenclock stop                       stop
-  tokenclock restart [--glass|--normal] restart
-  tokenclock doctor                     diagnose environment and installed versions
-  tokenclock update [--glass|--normal]  pull the latest install.sh, upgrade and restart
-  tokenclock update --check             only download the latest script, do not upgrade
+  omniclock start [--glass|--normal]   start (auto-selects by platform/version)
+  omniclock stop                       stop
+  omniclock restart [--glass|--normal] restart
+  omniclock doctor                     diagnose environment and installed versions
+  omniclock update [--glass|--normal]  pull the latest install.sh, upgrade and restart
+  omniclock update --check             only download the latest script, do not upgrade
 
-── tokenclock doctor ──
+── omniclock doctor ──
 EOF
 printf '%s\n' "$DOCTOR_OUT"
 

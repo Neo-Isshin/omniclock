@@ -172,7 +172,7 @@ final class ReleaseUpdateServiceTests: XCTestCase {
 
     func testInstalledVersionMatchesCLIReleasePin() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let cli = try String(contentsOf: root.appendingPathComponent("cli/tokenclock"), encoding: .utf8)
+        let cli = try String(contentsOf: root.appendingPathComponent("cli/omniclock"), encoding: .utf8)
         XCTAssertTrue(cli.contains("CLI_VERSION=\"\(AppConfig.version)\""), "Bump AppConfig.version with every release")
     }
 

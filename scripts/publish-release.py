@@ -102,9 +102,11 @@ def publish(version, assets_dir, output, repo, source_refs=(), without_windows=F
                         "--prefix=TokenClock/", f"--output={source}", ref], check=True)
         source.chmod(0o644)
         atomic_write(Path(str(source) + ".sha256"), f"{digest(source)}  {source.name}\n".encode())
-    for name in ("install.sh", "install.ps1", "tokenclock"):
+    for name in ("install.sh", "install.ps1", "omniclock"):
         body = subprocess.check_output(["git", "-C", str(repo), "show", f"HEAD:cli/{name}"])
         atomic_write(output / name, body)
+        if name == "omniclock":
+            atomic_write(output / "tokenclock", body)
     latest = output / "releases" / "latest.json"
     if not latest.exists() or version_key(json.loads(latest.read_bytes())["tag_name"]) <= version_key(version):
         atomic_write(latest, metadata)
