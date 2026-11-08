@@ -5,17 +5,37 @@ import XCTest
 @testable import TokenClock
 
 @MainActor final class NetworkToolboxLayoutTests: XCTestCase {
+    private func scrollViews(in view: NSView) -> [NSScrollView] {
+        (view as? NSScrollView).map { [$0] } ?? view.subviews.flatMap { scrollViews(in: $0) }
+    }
     func testEveryResultCardHasSixRowsOfSpaceRegardlessOfItsContent() throws {
         _ = NSApplication.shared
         for width: CGFloat in [280, 368, 408] {
             for count in [0, 1, 6, 20] {
                 let text = (0..<count).map { "203.0.113.\($0) · Example location with a long display name" }.joined(separator:"\n")
                 let card = NetworkToolboxPresentation.Card(id:"dns",title:"",status:"",text:text,state:"review")
+                XCTAssertEqual(card.detailLines.count, max(1, count))
                 let host = NSHostingView(rootView: NetworkToolboxResultCard(card:card,icon:"server.rack").frame(width:width))
                 host.frame=NSRect(x:0,y:0,width:width,height:NetworkToolboxCardLayout.cardHeight)
                 host.layoutSubtreeIfNeeded()
                 XCTAssertEqual(host.fittingSize.height,NetworkToolboxCardLayout.cardHeight,accuracy:1)
                 XCTAssertEqual(NetworkToolboxCardLayout.detailsHeight/NetworkToolboxCardLayout.rowHeight,6)
+                if count == 20 {
+                    let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+                    window.isReleasedWhenClosed = false
+                    window.contentView = host
+                    defer { window.close() }
+                    RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+                    host.layoutSubtreeIfNeeded()
+                    if let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) { host.cacheDisplay(in: host.bounds, to: bitmap) }
+                    let scroll = try XCTUnwrap(scrollViews(in: host).first)
+                    let document = try XCTUnwrap(scroll.documentView)
+                    XCTAssertGreaterThan(document.frame.height, scroll.contentView.bounds.height)
+                    let bottom = max(0, document.frame.height - scroll.contentView.bounds.height)
+                    scroll.contentView.scroll(to: NSPoint(x: 0, y: bottom))
+                    scroll.reflectScrolledClipView(scroll.contentView)
+                    XCTAssertGreaterThan(scroll.contentView.bounds.minY, 0, "All twenty rows must be reachable by scrolling")
+                }
             }
         }
         let model = MainlandReachabilityModel()

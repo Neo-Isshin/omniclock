@@ -24,6 +24,8 @@ final class NetworkLeakLiveTests: XCTestCase {
         XCTAssertTrue(state.contains("finished") || state.contains("检测完成"), state)
         let resolvers = await text(browser, "String(document.querySelectorAll('#dnsAddresses code').length)")
         XCTAssertGreaterThan(Int(resolvers) ?? 0, 0)
+        let totalResolvers = await text(browser, "String(window.TokenClockLeak.snapshot()?.resolvers.length || 0)")
+        XCTAssertEqual(resolvers, totalResolvers, "The six-row viewport must retain every DNS result")
         let verdict = await text(browser, "document.getElementById('rtcBadge')?.dataset.state || ''")
         XCTAssertTrue(["match", "review", "risk", "incomplete"].contains(verdict), "Unexpected WebRTC classification: " + verdict)
         print("Native WebKit live check: DNS observed; WebRTC verdict=" + verdict)

@@ -79,6 +79,7 @@ final class NetworkLeakWindow: NSWindowController, NSWindowDelegate, WKNavigatio
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
+        configuration.userContentController.addUserScript(WKUserScript(source: "window.TokenClockDNSLocationsNative = true", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         configuration.userContentController.add(WeakNetworkDiagnosticHandler(owner: self), name: "networkDiagnostics")
         configuration.userContentController.add(WeakNetworkDiagnosticHandler(owner: self), name: "networkPresentation")
         let view = WKWebView(frame: .zero, configuration: configuration)
@@ -224,16 +225,23 @@ final class NetworkLeakWindow: NSWindowController, NSWindowDelegate, WKNavigatio
             if runID == diagnosticRunID { stopDiagnostics() }
             return
         }
-        guard body["action"] as? String == "start", runID != diagnosticRunID else { return }
+        guard let action = body["action"] as? String, ["start", "dnsLocations"].contains(action), runID != diagnosticRunID else { return }
+        let locationTimeout = min(12, max(0.2, (body["timeoutMilliseconds"] as? Double ?? 10000) / 1000))
+        let resolverAddresses = DNSResolverLocations.addresses(Array((body["addresses"] as? [String] ?? []).prefix(32)))
         stopDiagnostics()
         let fetcher = NetworkDiagnosticFetcher()
         diagnosticFetcher = fetcher
         diagnosticRunID = runID
         let baseline = NetworkDiagnosticParser.address(body["baselineIP"] as? String)
-        presentation.observedExitIP = baseline
+        if action == "start" { presentation.observedExitIP = baseline }
         let dnsToken = (body["dnsToken"] as? String).flatMap { $0.range(of:"^[a-f0-9]{32}$", options:.regularExpression) != nil ? $0 : nil }
         diagnosticsTask = Task { [weak self] in
-            let result = await NetworkDiagnostics.run(runID: runID, baselineIP: baseline, fetcher: fetcher, dnsToken: dnsToken)
+            let result: NetworkDiagnosticsResult
+            if action == "dnsLocations" {
+                result = await .init(runID: runID, rows: DNSResolverLocations.lookup(resolverAddresses, timeout: locationTimeout))
+            } else {
+                result = await NetworkDiagnostics.run(runID: runID, baselineIP: baseline, fetcher: fetcher, dnsToken: dnsToken)
+            }
             fetcher.cancel()
             guard !Task.isCancelled, let self, self.diagnosticRunID == runID,
                   let data = try? JSONEncoder().encode(result), let json = String(data: data, encoding: .utf8) else { return }
