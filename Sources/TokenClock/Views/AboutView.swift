@@ -25,7 +25,7 @@ struct AboutView: View {
             .padding(.top, 4)
 
             VStack(spacing: 4) {
-                Text("TokenClock")
+                Text("OmniClock")
                     .font(.system(size: 22, weight: .semibold))
                 Text(version)
                     .font(.system(size: 13))

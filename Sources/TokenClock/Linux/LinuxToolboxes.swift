@@ -61,6 +61,8 @@
         .tc-toolbox-muted { opacity:0.68;font-size:10px; }
         .tc-toolbox-action { border-radius:9px;min-height:18px;font-size:11px;padding:3px 8px; }
         .tc-toolbox-row { border-radius:8px;padding:5px; }
+        .tc-network-result { background:alpha(@theme_fg_color,0.025);border-radius:8px; }
+        .tc-network-line { padding:2px 7px; font-size:10px; }
         .tc-summary-total { font-size:26px;font-weight:bold; }
         """)
       self.content.onChange = { [weak self] in self?.contentChanged() }
@@ -446,7 +448,7 @@
       }
       let groups = Dictionary(
         grouping: rows.filter {
-          $0.category == "location" && $0.state == "observed" && $0.ip != nil
+          $0.category == "geo" && $0.state == "observed" && $0.ip != nil
         }, by: { $0.ip! })
       if groups.values.contains(where: { Set($0.compactMap(\.country)).count > 1 }) {
         issues.append(
@@ -495,16 +497,41 @@
           "DNS、WebRTC 与浏览器 DoH 在 Ailyre 检测页验证；下方为本机出口、IPv6、地区和 AI 域名的观测，不把超时判为封锁。",
           "Ailyre's browser check verifies DNS, WebRTC and browser DoH. Below are native exit, IPv6, location and AI-route observations. Timeouts are not classified as blocks."
         ), box, muted: true)
-      for row in networkRows {
-        let card = stack(box, card: true)
-        label(row.label + " · " + stateTitle(row.state), card, heading: true)
-        let values = [
-          row.ip, row.country, row.region, row.city, row.httpStatus.map { "HTTP \($0)" }, row.note,
-        ].compactMap { $0 }.filter { !$0.isEmpty }
-        label(
-          values.isEmpty
-            ? toolboxText("本次未获取可判定的数据。", "No conclusive data for this check.")
-            : values.joined(separator: " · "), card, muted: true)
+      let grid = gtk_grid_new()!
+      gtk_grid_set_column_spacing(tc_gtk_grid(grid), 12)
+      gtk_grid_set_row_spacing(tc_gtk_grid(grid), 12)
+      gtk_grid_set_column_homogeneous(tc_gtk_grid(grid), 1)
+      gtk_box_pack_start(tc_gtk_box(box), grid, 0, 0, 0)
+      let groups: [(String,String)] = [("exit",toolboxText("网页出口","Web exit IP")),("dns",toolboxText("DNS 泄漏检测","DNS leak check")),("rtc",toolboxText("WebRTC 泄漏检测","WebRTC leak check")),("geo",toolboxText("出口与地区","Exit & location")),("ipv6",toolboxText("IPv6 泄漏检测","IPv6 leak check")),("ai",toolboxText("AI 域名分流","AI domain routing")),("doh",toolboxText("加密 DNS（DoH）","Encrypted DNS (DoH)"))]
+      let exits = Set(networkRows.filter{$0.category == "exit"}.compactMap(\.ip))
+      for (index,group) in groups.enumerated() {
+        let card=gtk_box_new(GTK_ORIENTATION_VERTICAL,8)!
+        tc_gtk_add_class(card,"tc-toolbox-card")
+        gtk_widget_set_size_request(card,-1,208)
+        gtk_grid_attach(tc_gtk_grid(grid),card,gint(index%2),gint(index/2),1,1)
+        label(group.1,card,heading:true)
+        let rows=networkRows.filter{$0.category == group.0}
+        let browserOnly=["dns","rtc","doh"].contains(group.0)
+        let summary:String
+        if browserOnly {summary=toolboxText("请在完整检测页检查是否泄漏。","Check for leaks on the full browser page.")}
+        else if networkRunning {summary=toolboxText("正在检测…","Checking…")}
+        else if networkDate == nil {summary=toolboxText("点击开始检测后显示结果。","Run a check to see results.")}
+        else if group.0 == "exit" {summary=exits.isEmpty ? toolboxText("未取得公网出口，暂无法判断。","No public exit was obtained."):exits.count>1 ? toolboxText("检测到不同出口，请核对分流。","Different exits detected; review routing."):toolboxText("各来源看到的公网出口一致。","Public exit observations match.")}
+        else if group.0 == "ipv6" {summary=rows.contains{$0.ip != nil} ? toolboxText("可通过 IPv6 联网；是否泄漏需核对预期。","IPv6 is reachable; a leak depends on your expected route."):toolboxText("本次未检测到 IPv6 出口。","No IPv6 exit was detected in this check.")}
+        else if group.0 == "ai" {let known=rows.compactMap(\.ip);summary=known.contains{!exits.contains($0)} ? toolboxText("AI 域名出现不同出口，请核对分流。","AI domains use different exits; review routing."):toolboxText("已取得 \(known.count)/\(rows.count) 个域名的出口；其余暂无法判断。","Exit IPs obtained for \(known.count)/\(rows.count) domains; others are inconclusive.")}
+        else {let locations=Dictionary(grouping:rows.filter{$0.country != nil},by:{$0.ip ?? ""});summary=locations.values.contains{Set($0.compactMap(\.country)).count>1} ? toolboxText("同一 IP 的地区结果存在差异。","Location sources disagree for the same IP."):locations.values.contains{$0.count>=2} ? toolboxText("已取得的地区对照一致。","Available location comparisons agree."):toolboxText("地区信息不足，暂无法完成对照。","Not enough location information for comparison.")}
+        let verdict=label(summary,card)
+        gtk_widget_set_size_request(verdict,-1,36)
+        let scroll=gtk_scrolled_window_new(nil,nil)!
+        gtk_scrolled_window_set_policy(tc_gtk_scrolled_window(scroll),GTK_POLICY_NEVER,GTK_POLICY_AUTOMATIC)
+        gtk_scrolled_window_set_min_content_height(tc_gtk_scrolled_window(scroll),120)
+        gtk_scrolled_window_set_max_content_height(tc_gtk_scrolled_window(scroll),120)
+        tc_gtk_add_class(scroll,"tc-network-result")
+        gtk_box_pack_start(tc_gtk_box(card),scroll,0,0,0)
+        let lines=gtk_box_new(GTK_ORIENTATION_VERTICAL,0)!
+        gtk_container_add(tc_gtk_container(scroll),lines)
+        if browserOnly {button(toolboxText("打开完整检测 ↗","Open full check ↗"),"network:browser",lines)}
+        else {for row in rows {let values=[row.label,row.ip,row.country,row.region,row.city,row.httpStatus.map{"HTTP \($0)"}].compactMap{$0}.filter{!$0.isEmpty};let line=label(values.joined(separator:" · "),lines,muted:true);tc_gtk_add_class(line,"tc-network-line");gtk_widget_set_size_request(line,-1,20)}}
       }
       let mainlandCard = stack(box, card: true)
       label(
@@ -590,7 +617,7 @@
             self.updateURL = url
           case .current:
             self.label(L10n.shared.tr("update.current"), box, heading: true)
-            self.label("TokenClock " + AppConfig.version, box, muted: true)
+            self.label("OmniClock " + AppConfig.version, box, muted: true)
           case .unavailable:
             self.label(L10n.shared.tr("update.unavailable"), box)
             self.label(L10n.shared.tr("update.unavailableBody"), box, muted: true)

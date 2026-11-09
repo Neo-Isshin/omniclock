@@ -369,7 +369,7 @@ final class LinuxDetailsPanel: @unchecked Sendable {
               let createdCard = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0) else { return }
         window = createdWindow
         card = createdCard
-        gtk_window_set_title(tc_gtk_window(createdWindow), "TokenClock Details")
+        gtk_window_set_title(tc_gtk_window(createdWindow), "OmniClock Details")
         gtk_window_set_decorated(tc_gtk_window(createdWindow), 0)
         gtk_window_set_resizable(tc_gtk_window(createdWindow), 1)
         tc_gtk_enable_panel_edge_resize(createdWindow)
@@ -401,7 +401,7 @@ final class LinuxDetailsPanel: @unchecked Sendable {
         else {
             let header=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,5)!,icons=gtk_box_new(GTK_ORIENTATION_VERTICAL,2)!
             gtk_container_set_border_width(tc_gtk_container(header),10)
-            appendLabel("TokenClock",width:120,expands:true,alignment:0,style:"tokenclock-detail-text",to:header)
+            appendLabel("OmniClock",width:120,expands:true,alignment:0,style:"tokenclock-detail-text",to:header)
             _=appendControl("🔔",name:"details:notifications",to:icons)
             _=appendControl("↥",name:"details:share",to:icons)
             _=appendControl("☷",name:"details:quick-edit",to:icons)

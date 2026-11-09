@@ -303,9 +303,9 @@ release_tag_for_variant() {
     return
   fi
   case "$1" in
-    glass)  echo "v1.6.3" ;;
-    normal) echo "v1.6.3" ;;
-    linux)  echo "v1.6.3" ;;
+    glass)  echo "omniclock-v1.0.0" ;;
+    normal) echo "omniclock-v1.0.0" ;;
+    linux)  echo "omniclock-v1.0.0" ;;
   esac
 }
 release_base_for_tag() {
@@ -322,8 +322,8 @@ tarball_name() {
 }
 tarball_sha256() {
   case "$1" in
-    glass)  echo "c40b235dc7ae94f0d785a9911039eb0b64acc972aebe474e5b14019f38b80fec" ;;
-    normal) echo "48672f70be584540c78d234c45acdd7e621bc45472d1b232ea2f3722947dd2c8" ;;
+    glass)  echo "c546c377a08f4e3df38ea275b8f070a1ac55ee3532b2c11e20a9b13c25dbc0ae" ;;
+    normal) echo "fb97a7fb494816f018fd0b54bd33a0bf5a522d6e0659de73281def65e16f1d48" ;;
   esac
 }
 
@@ -639,7 +639,7 @@ enable_linux_autostart() {
   cat > "$desktop_path" <<EOF || die "Failed to write $desktop_path"
 [Desktop Entry]
 Type=Application
-Name=TokenClock
+Name=OmniClock
 Comment=Local AI coding usage clock
 Exec=$exec_line
 Terminal=false
@@ -849,7 +849,7 @@ fi
 
 cat <<EOF
 
-🎉 TokenClock installed!
+🎉 OmniClock installed!
 
   Variants: $VARIANT_LABELS
   Clock:    $HOME_DIR/${VARIANTS[0]}/TokenClock

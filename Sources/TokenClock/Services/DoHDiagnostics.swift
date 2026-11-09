@@ -112,7 +112,7 @@ enum DoHDiagnostics {
         return [0,3].contains(packet.rcode)
     }
     static func run(token:String?,baseline:String?,fetcher:NetworkDiagnosticFetcher) async -> [NetworkDiagnosticRow] {
-        guard let token,token.range(of:"^[0-9a-f]{32}$",options:.regularExpression) != nil else{return [.init(id:"doh-unavailable",category:"doh",label:"DoH",host:"",state:"unknown",note:toolboxText("请在 Ailyre 完整浏览器检测页查看 DNS / DoH 结果；本机客户端未取得此项的可验证记录。","Review DNS / DoH on Ailyre’s full browser check page; this native client has no verifiable browser result.")) ]}
+        guard let token,token.range(of:"^[0-9a-f]{32}$",options:.regularExpression) != nil else{return [.init(id:"doh-unavailable",category:"doh",label:"DoH",host:"",state:"unknown",note:"本次未提供独立 DNS 查询标记，请更新检测页面") ]}
         async let configs=Task.detached {BrowserDoHConfiguration.read()}.value
         var rows=await withTaskGroup(of:NetworkDiagnosticRow.self) {group in
             for (index,label,endpoint) in [(0,"Cloudflare","https://cloudflare-dns.com/dns-query"),(1,"Google","https://dns.google/dns-query")] {

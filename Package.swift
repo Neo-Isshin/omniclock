@@ -18,6 +18,7 @@ let linuxSources = [
     "Services/LocalToolboxCache.swift",
     "Services/DoHDiagnostics.swift",
     "Services/NetworkDiagnostics.swift",
+    "Services/DNSResolverLocations.swift",
     "Services/MainlandReachability.swift",
     "Services/UserContentCenter.swift",
     "Services/NotebookStore.swift",

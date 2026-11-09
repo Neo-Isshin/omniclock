@@ -285,7 +285,7 @@ final class LinuxUsageShareWindow: @unchecked Sendable {
     }
 
     private func copyImage() {
-        let path = NSTemporaryDirectory() + "TokenClock-\(data.dateKey).png"
+        let path = NSTemporaryDirectory() + "OmniClock-\(data.dateKey).png"
         guard renderer.writePNG(data: data, style: style, to: path) else { return }
         path.withCString { _ = tc_gtk_clipboard_set_png($0) }
         try? FileManager.default.removeItem(atPath: path)
@@ -293,7 +293,7 @@ final class LinuxUsageShareWindow: @unchecked Sendable {
 
     private func saveImage() {
         guard let window else { return }
-        let suggested = "TokenClock-\(data.dateKey)-\(data.endDateKey).png"
+        let suggested = "OmniClock-\(data.dateKey)-\(data.endDateKey).png"
         let selected = L10n.shared.tr("share.savePNG").withCString { title in
             suggested.withCString { name in tc_gtk_choose_save_file(window, title, name) }
         }
@@ -416,7 +416,7 @@ final class LinuxUsageShareRenderer {
         cairo_set_line_width(context, 2.5)
         cairo_stroke(context)
         text(context, "◷", 19, 700, 57, 38, align: 1, color: accent)
-        text(context, "TokenClock", 17, 700, 88, 28, color: fg)
+        text(context, "OmniClock", 17, 700, 88, 28, color: fg)
         text(context, L10n.shared.tr("share.report"), 9, 600, 88, 51, color: fg, alpha: 0.48)
         text(context, periodTitle(data.period), 12, 700, 562, 24, align: 2, color: fg)
         text(context, "\(data.dateKey) — \(data.endDateKey)", 9, 600, 562, 49, align: 2, color: fg, alpha: 0.56)

@@ -32,7 +32,7 @@
 
 **OmniClock** 原名 **TokenClock**，将日常使用 AI 时关心的信息和工具集中到桌面。表盘展示活动与选定额度，展开后可以查看用量历史、费用、行事本、AI 资讯，以及本地和网络诊断工具。
 
-仓库保留原有历史。macOS／Linux 的主命令改为 `omniclock`，原来的 `tokenclock` 命令继续兼容。本次更名沿用现有发行版本：**macOS 和 Linux 为 v1.6.3**，Windows 继续提供已验证的 **v1.5.12**；本次并未发布 v1.0.0 应用版本。
+**OmniClock v1.0.0** 同时提供 macOS Glass、macOS Normal、Windows 和 Linux 版本。仓库保留原有历史；macOS／Linux 使用 `omniclock` 主命令，原来的 `tokenclock` 命令、设置与用量历史继续兼容。
 
 ## 功能
 
@@ -46,20 +46,20 @@
 | **网络工具箱** | 点击后检测 DNS／DoH、WebRTC、IPv6、出口 IP 与地区、AI 域名分流，以及大陆可达性参考；区分可能有风险与尚不能确认的结果。 |
 | **本地工具箱与模型检测** | 检查环境冲突和磁盘占用，本地扫描日志泄密，检查时钟偏差，并以脱敏结果验证配置中的 API Key。模型检测分析已有会话证据，也支持用户明确启动的外部检查。 |
 
-macOS 的总结面板集中展示小时用量、较昨日同期、缓存利用率、额度重置时间、行事本和工具／模型列表。快捷按钮可以调整显示与顺序。Linux 通过原生菜单和面板提供对应功能，部分检查会打开浏览器。
+macOS 和 Windows 的总结面板集中展示小时用量、较昨日同期、缓存利用率、额度重置时间、行事本和工具／模型列表。快捷按钮可以调整显示与顺序。Linux 通过原生菜单和面板提供对应功能，部分检查会打开浏览器。
 
 ## 支持平台
 
 | 平台 | 版本 | 当前分发情况 |
 |---|---|---|
-| macOS 26+ | Glass 或 Normal | v1.6.3，Apple 芯片／Intel 通用包 |
-| macOS 12–25 | Normal | v1.6.3 通用包，不透明主题表盘 |
-| Linux x86_64 | Normal，GTK3／Cairo | v1.6.3 AppImage，要求 glibc 2.35+；缺少 FUSE 时可解包运行 |
-| Windows 11 x86_64 | Normal，Win32 | 继续提供已验证的 v1.5.12；新版功能与安装包待自有 Windows 测试机验证 |
+| macOS 26+ | Glass 或 Normal | v1.0.0，Apple 芯片／Intel 通用包 |
+| macOS 12–25 | Normal | v1.0.0 通用包，不透明主题表盘 |
+| Linux x86_64 | Normal，GTK3／Cairo | v1.0.0 AppImage，要求 glibc 2.35+；缺少 FUSE 时可解包运行 |
+| Windows 11 x86_64 | Normal，Win32 | v1.0.0 便携包；原生 Acrylic 毛玻璃面板与系统回退样式 |
 
 Glass 保留透明材质与专属光学效果，Normal 使用自己的主题和对比度规则。Normal 的 **Text Color／字体颜色** 快捷按钮只影响详情面板，表盘文字有独立的外观设置。
 
-Windows **尚未包含当前 macOS／Linux 的全部新功能**，恢复实机验证前不发布新的 Windows 安装包。项目测试在本机或自有测试机进行，不使用 GitHub Actions。
+四个版本对齐共享统计、价格、历史与发布版本。Windows 使用 Win32／WebView2 和原生 Acrylic；Linux 保留 GTK 面板，浏览器 DNS／WebRTC 泄漏项目在 Ailyre 完整检测页运行。项目测试在本机或自有测试机进行，不使用 GitHub Actions。
 
 ## 安装
 
@@ -104,7 +104,7 @@ macOS 可能要求授权访问受保护目录或外接磁盘。当前临时签�
 & ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1)))
 ```
 
-为当前用户安装现有已验证的 Windows 包，并校验 SHA-256。为兼容既有安装，目录与可执行文件仍保留 TokenClock 名称。上面的 `omniclock`／`tokenclock` Shell 管理命令适用于 macOS 和 Linux。
+为当前用户安装已验证的 Windows v1.0.0 包，并校验 SHA-256。为兼容既有安装，目录与可执行文件仍保留 TokenClock 名称。上面的 `omniclock`／`tokenclock` Shell 管理命令适用于 macOS 和 Linux。
 
 <details>
 <summary>Windows 安装器选项</summary>
@@ -135,7 +135,7 @@ macOS 可能要求授权访问受保护目录或外接磁盘。当前临时签�
 
 ## 支持的数据源
 
-当前 macOS／Linux 覆盖 Codex、Claude Code、Cursor Agent、Grok Bot、Antigravity、OpenClaw、Gemini CLI、Hermes、OpenCode、Qwen Code、Copilot CLI、Grok CLI、Aider、Cline、Continue、ZCode、Kilo Code、Pi、OMP、PiG、DSH、Command Code 和 Freebuff，具体可统计内容取决于工具实际保存的记录。
+当前四个平台版本 覆盖 Codex、Claude Code、Cursor Agent、Grok Bot、Antigravity、OpenClaw、Gemini CLI、Hermes、OpenCode、Qwen Code、Copilot CLI、Grok CLI、Aider、Cline、Continue、ZCode、Kilo Code、Pi、OMP、PiG、DSH、Command Code 和 Freebuff，具体可统计内容取决于工具实际保存的记录。
 
 - 非默认目录和外接磁盘可在 **设置 → 数据源路径**中指定。
 - Freebuff 提供的是本地已完成回复数，不是 Token 记录；这些计数不参与 Token 和 API 等价费用汇总。
@@ -167,10 +167,10 @@ curl 'http://127.0.0.1:9988/api/history?days=30'
 ## 界面截图
 
 <div align="center">
-<p><img src="https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/docs/screenshots/usage_overview.png" alt="用量历史" width="780"></p>
+<p><img src="docs/screenshots/usage_overview.png" alt="用量历史" width="780"></p>
 <table>
   <tr>
-    <td align="center"><img src="https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/docs/screenshots/subscription_quota.png" alt="订阅额度面板" width="460"></td>
+    <td align="center"><img src="docs/screenshots/subscription_quota.png" alt="订阅额度面板" width="460"></td>
     <td align="center"><img src="docs/screenshots/themes_zh.png" alt="表盘主题选择" width="280"></td>
   </tr>
 </table>
@@ -183,7 +183,7 @@ git clone https://github.com/Neo-Isshin/omniclock.git
 cd omniclock
 ```
 
-`main` 为 macOS Glass，`normal` 为 macOS Normal，`codex/linux-theme-parity` 为当前 Linux 版本。内部 Swift target 和 bundle 名称保留 `TokenClock` 以维持兼容。修改共享组件前，请阅读[平台行为约定](PLATFORM_PARITY.md)和[模型检测集成](https://github.com/Neo-Isshin/omniclock/blob/main/docs/MODEL_DETECT_INTEGRATION.md)。
+`main` 为 macOS Glass，`normal` 为 macOS Normal，`codex/linux-theme-parity` 为当前 Linux 版本。内部 Swift target 和 bundle 名称保留 `TokenClock` 以维持兼容。修改共享组件前，请阅读[平台行为约定](PLATFORM_PARITY.md)和[模型检测集成](docs/MODEL_DETECT_INTEGRATION.md)。
 
 安装异常时先运行 `omniclock doctor`。用量缺失时检查所选目录中是否有真实用量记录；额度异常时区分本机记录缺失、读取权限、登录过期和服务端拒绝。
 

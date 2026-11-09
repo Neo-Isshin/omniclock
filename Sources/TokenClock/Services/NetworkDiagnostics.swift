@@ -1,6 +1,7 @@
 import Foundation
 #if os(Windows)
 import WinSDK
+import Win32Shim
 #elseif os(Linux)
 import Glibc
 #else
@@ -37,8 +38,7 @@ enum NetworkDiagnosticParser {
         let family: Int32 = raw.contains(":") ? AF_INET6 : AF_INET
         var text = [CChar](repeating: 0, count: 65)
         #if os(Windows)
-        guard raw.withCString({ InetPtonA(family, $0, &bytes) }) == 1,
-              InetNtopA(family, &bytes, &text, UInt(text.count)) != nil else { return nil }
+        guard raw.withCString({ win_normalize_ip_address($0, &text, Int32(text.count)) }) != 0 else { return nil }
         #else
         guard raw.withCString({ inet_pton(family, $0, &bytes) }) == 1,
               inet_ntop(family, &bytes, &text, socklen_t(text.count)) != nil else { return nil }
@@ -92,13 +92,14 @@ final class NetworkDiagnosticFetcher: @unchecked Sendable {
     static let bodyLimit = 16 * 1024
     private let limit: Int
     private let userAgent: String
+    private let timeout: TimeInterval
     private let lock = NSLock()
     private var stopped = false
-    init(maximumBodyBytes: Int = NetworkDiagnosticFetcher.bodyLimit, userAgent: String = "TokenClock-NetworkCheck/1") {
-        self.limit = maximumBodyBytes; self.userAgent = userAgent
+    init(maximumBodyBytes: Int = NetworkDiagnosticFetcher.bodyLimit, userAgent: String = "TokenClock-NetworkCheck/1", requestTimeout: TimeInterval = 6, resourceTimeout: TimeInterval = 8) {
+        self.limit = maximumBodyBytes; self.userAgent = userAgent; self.timeout = max(0.2, min(requestTimeout, resourceTimeout))
     }
-    func fetch(_ url: URL, method: String = "GET") async -> NetworkDiagnosticReply {
-        var request = ProviderHTTPRequest(url:url); request.httpMethod = method; return await fetch(request)
+    func fetch(_ url: URL, head: Bool = false) async -> NetworkDiagnosticReply {
+        var request = ProviderHTTPRequest(url:url); request.httpMethod = head ? "HEAD":"GET"; return await fetch(request)
     }
     func fetch(_ input: ProviderHTTPRequest) async -> NetworkDiagnosticReply {
         guard !lock.withLock({ stopped }), let url = input.url, ["http","https"].contains(url.scheme ?? ""),
@@ -106,11 +107,11 @@ final class NetworkDiagnosticFetcher: @unchecked Sendable {
         var request = input
         request.setValue(userAgent,forHTTPHeaderField:"User-Agent")
         let transportRequest = request
-        let reply = await Task.detached(priority:.utility) { [limit] in
+        let reply = await Task.detached(priority:.utility) { [limit, timeout] in
             guard let response = try? WindowsNativeHTTP.request(url:url.absoluteString,method:transportRequest.httpMethod ?? "GET",
-                headers:transportRequest.allHTTPHeaderFields ?? [:],body:transportRequest.httpBody,connectTimeout:8,sendTimeout:8,receiveTimeout:8,
+                headers:transportRequest.allHTTPHeaderFields ?? [:],body:transportRequest.httpBody,connectTimeout:timeout,sendTimeout:timeout,receiveTimeout:timeout,
                 maximumResponseBytes:limit) else { return NetworkDiagnosticReply(data:Data(),status:nil,limited:false) }
-            return NetworkDiagnosticReply(data:response.body,status:response.statusCode,limited:response.body.count>limit)
+            return NetworkDiagnosticReply(data:response.body,status:response.statusCode,limited:response.body.count>limit,mime:response.mimeType)
         }.value
         return lock.withLock { stopped ? .init(data:Data(),status:nil,limited:false) : reply }
     }
@@ -253,6 +254,7 @@ enum NetworkDiagnostics {
         } else if let result = NetworkDiagnosticParser.trace(reply.data) {
             row.ip = result.ip; row.country = result.country
         }
+        if let address = row.ip, MainlandReachabilityTarget.parse(ip: address, port: "443") == nil { row.ip = nil }
         if row.ip != nil { row.state = "observed" }
         return row
     }
