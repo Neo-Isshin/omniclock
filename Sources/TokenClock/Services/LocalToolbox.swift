@@ -246,6 +246,14 @@ enum LocalLogScanner {
         }}
         for root in expanded {
             guard !cancelled() else { break }
+            // Optional harness directories are absent when the tool is not installed.
+            // Keep permission and other I/O failures visible; only a missing root is skipped.
+            do { _ = try FileManager.default.attributesOfItem(atPath: root.path) }
+            catch {
+                let error = error as NSError
+                if (error.domain == NSCocoaErrorDomain && [CocoaError.fileNoSuchFile.rawValue, CocoaError.fileReadNoSuchFile.rawValue].contains(error.code))
+                    || (error.domain == NSPOSIXErrorDomain && error.code == 2) { continue }
+            }
             guard let enumerator = FileManager.default.enumerator(at: URL(fileURLWithPath: root.path).resolvingSymlinksInPath(), includingPropertiesForKeys: [.isRegularFileKey,.isSymbolicLinkKey,.fileSizeKey,.contentModificationDateKey,.fileResourceIdentifierKey], options: [.skipsHiddenFiles], errorHandler: { url,_ in notes.append(.init(title: "读取失败", detail: "目录不可读，结果不完整", path: url.path)); return true }) else { continue }
             for case let url as URL in enumerator {
                 if cancelled() { break }
@@ -429,7 +437,7 @@ enum LocalLogScanner {
             if let data=text.data(using:.utf8),let object=try? JSONSerialization.jsonObject(with:data) as? [String:Any],let env=object["env"] as? [String:String] { fields.merge(env){_,v in v} }
             for (key,value) in fields where key.hasSuffix("BASE_URL") || key.hasSuffix("API_KEY") || ["model","model_provider","base_url"].contains(key) { values[key,default:[]].append((path,value)) }
         }
-        for (key,value) in ProcessInfo.processInfo.environment where key.hasSuffix("BASE_URL") || key.hasSuffix("API_KEY") { values[key,default:[]].append(("TokenClock process",value)) }
+        for (key,value) in ProcessInfo.processInfo.environment where key.hasSuffix("BASE_URL") || key.hasSuffix("API_KEY") { values[key,default:[]].append(("OmniClock process",value)) }
         // launchctl getenv is read-only: never source shell profiles or set env.
         for key in ["ANTHROPIC_BASE_URL","OPENAI_BASE_URL","ANTHROPIC_API_KEY","OPENAI_API_KEY"] {
             if Task.isCancelled { break }

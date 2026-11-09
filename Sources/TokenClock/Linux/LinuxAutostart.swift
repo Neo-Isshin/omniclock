@@ -46,7 +46,7 @@ enum LinuxAutostart {
         [Desktop Entry]
         Type=Application
         Version=1.0
-        Name=TokenClock
+        Name=OmniClock
         Comment=Beautiful local AI token usage clock
         Exec=\(launchCommand)
         Terminal=false

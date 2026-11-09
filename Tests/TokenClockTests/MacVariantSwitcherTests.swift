@@ -107,18 +107,18 @@ final class MacVariantSwitcherTests: XCTestCase {
     func testReleaseMetadataRequiresExactRepositoryTagAndDigest() throws {
         func metadata(url: String, digest: String, draft: Bool = false) throws -> Data {
             try JSONSerialization.data(withJSONObject: [
-                "tag_name": "v1.5.12", "draft": draft, "prerelease": false,
+                "tag_name": "omniclock-v1.0.0", "draft": draft, "prerelease": false,
                 "assets": [["name": "TokenClock-normal-universal.tar.gz", "size": 400,
                             "browser_download_url": url, "digest": digest]]
             ])
         }
-        let url = "https://www.ailyre.com/tokenclock/releases/download/v1.5.12/TokenClock-normal-universal.tar.gz"
+        let url = "https://www.ailyre.com/omniclock/releases/download/omniclock-v1.0.0/TokenClock-normal-universal.tar.gz"
         let digest = "sha256:" + String(repeating: "a", count: 64)
-        XCTAssertEqual(try MacVariantSwitcher.decodeAsset(metadata(url: url, digest: digest), variant: .normal, version: "1.5.12").size, 400)
-        XCTAssertThrowsError(try MacVariantSwitcher.decodeAsset(metadata(url: "https://example.com/package", digest: digest), variant: .normal, version: "1.5.12"))
-        XCTAssertThrowsError(try MacVariantSwitcher.decodeAsset(metadata(url: "https://github.com/Neo-Isshin/TokenClock/releases/download/v1.5.12/TokenClock-normal-universal.tar.gz", digest: digest), variant: .normal, version: "1.5.12"))
-        XCTAssertThrowsError(try MacVariantSwitcher.decodeAsset(metadata(url: url, digest: "sha256:bad"), variant: .normal, version: "1.5.12"))
-        XCTAssertThrowsError(try MacVariantSwitcher.decodeAsset(metadata(url: url, digest: digest, draft: true), variant: .normal, version: "1.5.12"))
+        XCTAssertEqual(try MacVariantSwitcher.decodeAsset(metadata(url: url, digest: digest), variant: .normal, version: "1.0.0").size, 400)
+        XCTAssertThrowsError(try MacVariantSwitcher.decodeAsset(metadata(url: "https://example.com/package", digest: digest), variant: .normal, version: "1.0.0"))
+        XCTAssertThrowsError(try MacVariantSwitcher.decodeAsset(metadata(url: "https://github.com/Neo-Isshin/TokenClock/releases/download/v1.5.12/TokenClock-normal-universal.tar.gz", digest: digest), variant: .normal, version: "1.0.0"))
+        XCTAssertThrowsError(try MacVariantSwitcher.decodeAsset(metadata(url: url, digest: "sha256:bad"), variant: .normal, version: "1.0.0"))
+        XCTAssertThrowsError(try MacVariantSwitcher.decodeAsset(metadata(url: url, digest: digest, draft: true), variant: .normal, version: "1.0.0"))
     }
 
     func testArchivePathsCannotEscapeOrIntroduceUnrelatedFiles() {

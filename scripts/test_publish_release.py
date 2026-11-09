@@ -73,6 +73,40 @@ class ReleasePublisherTests(unittest.TestCase):
             self.publish()
         self.assertEqual((self.site / "releases/latest.json").read_bytes(), latest)
 
+    def test_old_brand_release_cannot_roll_back_new_feed(self):
+        newer=self.publish("omniclock-v1.0.1")
+        publisher.stage_omniclock_feeds(self.site,newer)
+        older=self.publish("omniclock-v1.0.0")
+        publisher.stage_omniclock_feeds(self.site,older)
+        self.assertEqual(json.loads((self.site/"releases/omniclock-latest.json").read_text())["tag_name"],"omniclock-v1.0.1")
+        self.assertEqual(json.loads((self.site/"releases/latest.json").read_text())["product_version"],"1.0.1")
+
+    def test_migration_feed_preserves_discoverability_for_legacy_clients(self):
+        release=self.publish("omniclock-v1.0.0")
+        publisher.stage_omniclock_feeds(self.site,release)
+        self.assertEqual(json.loads((self.site/"releases/omniclock-latest.json").read_text())["tag_name"],"omniclock-v1.0.0")
+        old=json.loads((self.site/"releases/latest.json").read_text())
+        self.assertEqual(old["tag_name"],"v1.6.4")
+        self.assertEqual(old["product_version"],"1.0.0")
+        self.assertTrue((self.site/"releases/v1.6.4/index.html").exists())
+
+    def test_branded_downloads_keep_installer_aliases(self):
+        release=self.publish("omniclock-v1.0.0")
+        target=self.site / "releases/download/omniclock-v1.0.0"
+        self.assertEqual((target/"OmniClock-windows-x86_64.zip").read_bytes(),(target/"TokenClock-windows-x86_64.zip").read_bytes())
+        self.assertIn("OmniClock-windows-x86_64.zip",(target/"OmniClock-windows-x86_64.zip.sha256").read_text())
+        page=(self.site/"releases/omniclock-v1.0.0/index.html").read_text()
+        self.assertIn("OmniClock-windows-x86_64.zip",page)
+        self.assertNotIn("TokenClock-windows-x86_64.zip",page)
+        self.assertEqual(len(release["assets"]),12)
+
+    def test_omniclock_namespace_can_follow_higher_tokenclock_version(self):
+        self.publish("v1.6.3")
+        self.publish("omniclock-v1.0.0")
+        self.assertEqual(json.loads((self.site / "releases/latest.json").read_text())["tag_name"], "omniclock-v1.0.0")
+        self.publish("v1.6.4")
+        self.assertEqual(json.loads((self.site / "releases/latest.json").read_text())["tag_name"], "omniclock-v1.0.0")
+
     def test_older_version_does_not_replace_latest(self):
         self.publish("v1.5.12")
         self.publish("v1.5.11")

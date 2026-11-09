@@ -43,8 +43,8 @@ enum MacVariantSwitcher {
     static func decodeAsset(_ data: Data, variant: LaunchAgentHelper.Variant, version: String) throws -> Asset {
         let release = try JSONDecoder().decode(Release.self, from: data)
         let name = "TokenClock-\(variant.rawValue)-universal.tar.gz"
-        let expected = ReleaseUpdateService.distributionRoot + "/releases/download/v\(version)/\(name)"
-        guard release.tag_name == "v\(version)", !release.draft, !release.prerelease,
+        let expected = ReleaseUpdateService.distributionRoot + "/releases/download/omniclock-v\(version)/\(name)"
+        guard release.tag_name == "omniclock-v\(version)", !release.draft, !release.prerelease,
               let asset = release.assets.first(where: { $0.name == name }),
               asset.browser_download_url.absoluteString == expected,
               asset.size > 0, asset.size <= 32 * 1024 * 1024,
@@ -66,7 +66,7 @@ enum MacVariantSwitcher {
     static func prepare(_ target: LaunchAgentHelper.Variant) async throws {
         guard supported(target) else { throw Failure("This macOS version does not support the selected edition.") }
         guard needsInstallation(target) else { return }
-        let tag = "v\(AppConfig.version)"
+        let tag = "omniclock-v\(AppConfig.version)"
         let api = URL(string: ReleaseUpdateService.distributionRoot + "/releases/\(tag).json")!
         var request = URLRequest(url: api, timeoutInterval: 20)
         request.setValue("TokenClock/\(AppConfig.version)", forHTTPHeaderField: "User-Agent")

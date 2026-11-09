@@ -191,7 +191,7 @@ struct UsageShareWindowView: View {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.png]
         panel.canCreateDirectories = true
-        panel.nameFieldStringValue = "TokenClock-\(data.dateKey)-\(data.endDateKey).png"
+        panel.nameFieldStringValue = "OmniClock-\(data.dateKey)-\(data.endDateKey).png"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         try? png.write(to: url, options: .atomic)
     }

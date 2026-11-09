@@ -146,7 +146,7 @@ struct DetailDropdownView: View {
                     .padding(.horizontal, 8)
             } else {
                 HStack(alignment: .top) {
-                    Text("TokenClock").font(.system(size: 12, weight: .medium)).foregroundStyle(textColor)
+                    Text("OmniClock").font(.system(size: 12, weight: .medium)).foregroundStyle(textColor)
                     Spacer()
                     VStack(spacing: 4) {
                         forecastNotificationButton

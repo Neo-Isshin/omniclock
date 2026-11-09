@@ -102,7 +102,7 @@ ok "blacklisted GTK compatibility libraries bundled"
 
 cat > "$APPDIR/usr/share/applications/$APP.desktop" <<EOF
 [Desktop Entry]
-Name=TokenClock
+Name=OmniClock
 Comment=Token usage clock for AI coding tools
 Exec=$APP
 Icon=$ICON_NAME

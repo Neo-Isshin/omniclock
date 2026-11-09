@@ -23,8 +23,8 @@
     },
     {
       "path": "scripts/model_integrity/l1/cli.py",
-      "sha256": "c86cd5eec2ba9f777d3c70d8f07c6287ac5f947cd896cab2eddc0936d113fbc3",
-      "bytes": 8145
+      "sha256": "2ada89ede2db3dbf9d0ef6a23873dbb6e132edc61d1423a845f310d45b82e2e8",
+      "bytes": 8144
     },
     {
       "path": "scripts/model_integrity/l1/connections.py",
@@ -73,8 +73,8 @@
     },
     {
       "path": "scripts/model_integrity/l1/render.py",
-      "sha256": "e9492cb62c0e840cc8cf03e6dc470055a451dcd401b2a8bb9103133a16a03f7c",
-      "bytes": 40952
+      "sha256": "d7d857995df9ca0f751b9c30380ff0543c8882aa66b6a6d8f99d54970cc1d406",
+      "bytes": 40950
     },
     {
       "path": "scripts/model_integrity/l1/resources/behavior-reference-v1.json",
@@ -103,8 +103,8 @@
     },
     {
       "path": "scripts/model_integrity/l1/web/index.html",
-      "sha256": "a31acb901cf9c7842f556e5a38791c5f2fbf5e3fda7eb5d51614d863e5a4e238",
-      "bytes": 16803
+      "sha256": "c08fdbd724d717be541b87d5948bda029afa3681ce796d2985a92cc5ff344832",
+      "bytes": 16801
     },
     {
       "path": "scripts/model_integrity/l1/web/style.css",
@@ -168,8 +168,8 @@
     },
     {
       "path": "scripts/model_integrity/probes/codex_local.py",
-      "sha256": "78c4add28584d30f6241ef437da488f89bf47d2846156a3a4a1359cb3448e9be",
-      "bytes": 25188
+      "sha256": "2ddad6122fefe5179bd90f755ed3f6aa2b5c21b0383b41b7e415d1a73ff201bb",
+      "bytes": 25186
     },
     {
       "path": "scripts/model_integrity/probes/common.py",
@@ -288,8 +288,8 @@
     },
     {
       "path": "scripts/model_integrity/probes/report.py",
-      "sha256": "2b50561e278e7395e380236e5ac65af643b1807feee43d07f30ba126f5045d0f",
-      "bytes": 17115
+      "sha256": "7c5269739bcd97c9c7d034c3ffcc73ce0a82d0e631834a0fda52fe2b583f4206",
+      "bytes": 17113
     },
     {
       "path": "scripts/model_integrity/probes/resources/assessment-specs.json",
@@ -410,5 +410,5 @@
     "h01_h03": "verified OS sandbox",
     "h02_h04": "Node.js + Playwright + verified OS network guard"
   },
-  "runtime_sha256": "eef375380887ae634c80df3a33d1cc7e7cb305bb35f695b05afdb25e91ed97c3"
+  "runtime_sha256": "fdec8be582639fcd3166526217eb7e73551bc7e7c663e67878ea228daa741cf1"
 }

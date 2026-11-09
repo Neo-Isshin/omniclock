@@ -67,7 +67,7 @@ def write_bundle(output: Path, observation: dict, report: dict, html: str) -> No
 
 
 def parser() -> argparse.ArgumentParser:
-    result = argparse.ArgumentParser(description='TokenClock：已有会话、轻量探针与重型交付评估工作台')
+    result = argparse.ArgumentParser(description='OmniClock：已有会话、轻量探针与重型交付评估工作台')
     subcommands = result.add_subparsers(dest='command', required=True)
     command = subcommands.add_parser('analyze', help='分析一个已有会话或 observation 文档')
     command.add_argument('input', type=Path)

@@ -53,8 +53,8 @@ $desktopDirectory = Get-KnownFolder ([Environment+SpecialFolder]::DesktopDirecto
 if ([string]::IsNullOrWhiteSpace($InstallDir)) {
     $InstallDir = Join-Path $localAppData 'Programs\TokenClock'
 }
-$startMenuLink = Join-Path $roamingAppData 'Microsoft\Windows\Start Menu\Programs\TokenClock.lnk'
-$desktopLink = Join-Path $desktopDirectory 'TokenClock.lnk'
+$startMenuLink = Join-Path $roamingAppData 'Microsoft\Windows\Start Menu\Programs\OmniClock.lnk'
+$desktopLink = Join-Path $desktopDirectory 'OmniClock.lnk'
 $userDataDir = Join-Path $localAppData 'TokenClock'
 
 function Get-FullPath([string] $Path) {
@@ -126,7 +126,7 @@ function New-Shortcut([string] $LinkPath, [string] $ExePath, [string] $WorkingDi
     $shortcut = $shell.CreateShortcut($LinkPath)
     $shortcut.TargetPath = $ExePath
     $shortcut.WorkingDirectory = $WorkingDirectory
-    $shortcut.Description = 'TokenClock normal for Windows'
+    $shortcut.Description = 'OmniClock for Windows'
     $shortcut.WindowStyle = 7
     $shortcut.Save()
 }
@@ -159,7 +159,7 @@ function Get-Release {
         if (-not $release.draft -and -not $release.prerelease -and (Test-ReleaseHasWindowsAssets $release)) {
             return $release
         }
-        throw "No stable TokenClock release contains both $assetName and $checksumAssetName."
+        throw "No stable OmniClock release contains both $assetName and $checksumAssetName."
     }
     $encoded = [Uri]::EscapeDataString($Version)
     return Invoke-RestMethod "https://www.ailyre.com/omniclock/releases/$encoded.json" -Headers $headers
@@ -206,7 +206,7 @@ if ($Action -eq 'Uninstall') {
     if ((Test-Path -LiteralPath $InstallDir) -and -not (Test-TokenClockInstallation $InstallDir)) {
         throw "Refusing to uninstall an unrecognized directory: $InstallDir"
     }
-    if ($null -ne $PSCmdlet -and -not $PSCmdlet.ShouldProcess($InstallDir, 'Uninstall TokenClock')) { return }
+    if ($null -ne $PSCmdlet -and -not $PSCmdlet.ShouldProcess($InstallDir, 'Uninstall OmniClock')) { return }
     Stop-TokenClock $exe
     Remove-ShortcutIfOwned $startMenuLink $exe
     Remove-ShortcutIfOwned $desktopLink $exe
@@ -218,7 +218,7 @@ if ($Action -eq 'Uninstall') {
     if ($RemoveUserData -and (Test-Path -LiteralPath $userDataDir)) {
         Remove-Item -LiteralPath $userDataDir -Recurse -Force
     }
-    Write-Host "TokenClock was removed from $InstallDir"
+    Write-Host "OmniClock was removed from $InstallDir"
     if (-not $RemoveUserData) { Write-Host "Settings were preserved in $userDataDir (use -RemoveUserData to delete them)." }
     return
 }
@@ -229,7 +229,7 @@ if ((Test-Path -LiteralPath $InstallDir) -and -not (Test-TokenClockInstallation 
 # Invoke-Expression runs downloaded text in its caller's scope and does not create $PSCmdlet,
 # even when that text contains CmdletBinding. Keep the short pipeline form compatible while
 # explicit scriptblock invocation continues to provide ShouldProcess and WhatIf normally.
-if ($null -ne $PSCmdlet -and -not $PSCmdlet.ShouldProcess($InstallDir, "$Action TokenClock")) { return }
+if ($null -ne $PSCmdlet -and -not $PSCmdlet.ShouldProcess($InstallDir, "$Action OmniClock")) { return }
 
 $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) ("TokenClockInstaller-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $temporaryRoot | Out-Null
@@ -242,7 +242,7 @@ try {
         Copy-Item -LiteralPath (Get-FullPath $PackagePath) -Destination $zip
         if ($ChecksumPath) { Copy-Item -LiteralPath (Get-FullPath $ChecksumPath) -Destination $sha }
     } else {
-        Write-Host "Fetching TokenClock release metadata ($Version)..."
+        Write-Host "Fetching OmniClock release metadata ($Version)..."
         $release = Get-Release
         if ($null -eq $release -or [string]::IsNullOrWhiteSpace([string] $release.tag_name)) {
             throw 'The release server returned metadata without a tag name. Retry shortly or specify -Version v1.5.12.'
@@ -309,7 +309,7 @@ try {
     }
     if (-not $NoStart) { Start-Process -FilePath $exe -WorkingDirectory $InstallDir }
 
-    Write-Host "TokenClock $releaseTag installed to $InstallDir"
+    Write-Host "OmniClock $releaseTag installed to $InstallDir"
     if (-not $StartMenuShortcut -and -not $DesktopShortcut) {
         Write-Host 'No shortcut was created. Add -StartMenuShortcut or -DesktopShortcut explicitly if desired.'
     }

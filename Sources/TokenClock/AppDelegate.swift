@@ -318,7 +318,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard let button = statusItem?.button else { return }
         let actionLabel = L10n.shared.tr("status.summary")
         button.toolTip = L10n.shared.tr("status.interactionHint")
-        button.setAccessibilityLabel("TokenClock — \(actionLabel)")
+        button.setAccessibilityLabel("OmniClock — \(actionLabel)")
         button.setAccessibilityHelp(L10n.shared.tr("status.interactionHint"))
     }
 
@@ -821,7 +821,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     url = release
                 case .current:
                     alert.messageText = L10n.shared.tr("update.current")
-                    alert.informativeText = "TokenClock " + AppConfig.version
+                    alert.informativeText = "OmniClock " + AppConfig.version
                 case .unavailable:
                     alert.messageText = L10n.shared.tr("update.unavailable")
                     alert.informativeText = L10n.shared.tr("update.unavailableBody")

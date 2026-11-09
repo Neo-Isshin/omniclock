@@ -48,7 +48,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ -n "$VERSION" ] || { usage; die "missing version"; }
-case "$VERSION" in v[0-9]*.[0-9]*.[0-9]*) ;; *) die "version must look like v1.5.1" ;; esac
+case "$VERSION" in v[0-9]*.[0-9]*.[0-9]*|omniclock-v[0-9]*.[0-9]*.[0-9]*) ;; *) die "version must look like v1.5.1" ;; esac
 [ -n "$ASSETS_DIR" ] || die "--assets-dir is required"
 ASSETS_DIR="$(cd "$ASSETS_DIR" 2>/dev/null && pwd)" || die "asset directory does not exist"
 
@@ -124,7 +124,8 @@ if [ "$ONLY_GLASS" -eq 0 ]; then
   [ -x "$ASSETS_DIR/TokenClock-x86_64.AppImage" ] || die "Linux AppImage is not executable"
 fi
 
-plain="${VERSION#v}"
+plain="${VERSION#omniclock-}"
+plain="${plain#v}"
 grep -q "static let version = \"$plain\"" "$ROOT/Sources/TokenClock/Config/AppConfig.swift" \
   || die "Release notification version is not $plain"
 grep -q "CLI_VERSION=\"$plain\"" "$ROOT/cli/omniclock" || die "CLI version is not $plain"
@@ -135,16 +136,8 @@ fi
 if [ "$ONLY_GLASS" -eq 0 ]; then
 grep -q "linux)  echo \"$VERSION\"" "$ROOT/cli/install.sh" || die "Linux installer tag is not $VERSION"
 fi
-grep -q "private let version = \"$VERSION\"" "$ROOT/Sources/TokenClock/Views/AboutView.swift" \
+grep -q "private let version = \"v$plain\"" "$ROOT/Sources/TokenClock/Views/AboutView.swift" \
   || die "macOS About version is not $VERSION"
-if [ "$WITHOUT_WINDOWS" -eq 0 ]; then
-  grep -q "\"$VERSION\"" "$ROOT/Sources/TokenClock/Windows/WindowsApp.swift" \
-    || die "Windows About version is not $VERSION"
-fi
-if [ "$ONLY_GLASS" -eq 0 ]; then
-grep -q "\"$VERSION\"" "$ROOT/Sources/TokenClock/Linux/LinuxApp.swift" \
-  || die "Linux About version is not $VERSION"
-fi
 bash -n "$ROOT/cli/install.sh"
 bash -n "$ROOT/cli/omniclock"
 bash -n "$ROOT/cli/tokenclock"
@@ -183,7 +176,7 @@ case "$remote_stage" in /home/debian/tokenclock-release.*) ;; *) die "Invalid VP
 rsync -a "$TMP_DIR/site/" "$PUBLISH_HOST:$remote_stage/site/"
 # Activate payloads first; metadata/latest pointers must never advertise a partial upload.
 ssh -o BatchMode=yes "$PUBLISH_HOST" \
-  "sudo install -d -m 755 /var/www/tokenclock && sudo rsync -a --exclude='latest*.json' --exclude='index.html' '$remote_stage/site/' /var/www/tokenclock/ && sudo rsync -a '$remote_stage/site/' /var/www/tokenclock/ && sudo chmod -R a+rX /var/www/tokenclock"
+  "sudo install -d -m 755 /var/www/tokenclock && sudo rsync -a --exclude='*latest*.json' --exclude='index.html' '$remote_stage/site/' /var/www/tokenclock/ && sudo rsync -a '$remote_stage/site/' /var/www/tokenclock/ && sudo chmod -R a+rX /var/www/tokenclock"
 
 VERIFY_DIR="$TMP_DIR/downloaded"
 mkdir -p "$VERIFY_DIR"

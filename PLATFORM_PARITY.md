@@ -1,4 +1,4 @@
-# TokenClock 四版本一致性契约
+# OmniClock 四版本一致性契约
 
 > 进行“四版功能一致”“跨平台对齐”或共享核心重构前，必须先阅读本文。
 > 本文是刻意保留的平台差异清单；未登记的差异默认视为待修复问题。
@@ -10,7 +10,7 @@
 - macOS Glass（`main`）
 - macOS Normal（`normal`）
 - Windows Normal（`windows-port`）
-- Linux Normal（`normal`）
+- Linux Normal（`codex/linux-theme-parity`）
 
 首次登记版本：v1.5.1；适用基线始终以各分支最新 HEAD 为准。后续版本若改变行为或边界，必须同步更新本文。
 
@@ -87,7 +87,7 @@ macOS Glass 可以拥有 Normal 不具备的透明材质、Glass Backing、Liqui
 
 ### PARITY-006：平台原生收起入口
 
-macOS Normal 和 macOS Glass 提供菜单栏状态项；左键点击可隐藏全部 TokenClock 窗口，再次点击恢复原有窗口和状态。Windows Normal 通过表盘右键菜单的 Hide/Show 与系统托盘左键恢复提供等价能力。隐藏只影响可见界面，不暂停用量扫描、天气刷新、通知或本地 API。
+macOS Normal、macOS Glass 和 Windows 提供菜单栏／系统托盘入口：单击打开今日总结，双击显示或隐藏表盘。隐藏或被遮挡时临时前置显示，再双击隐藏，不改写 Always on top 偏好。隐藏只影响可见界面，不暂停用量扫描、天气刷新、通知或本地 API。
 
 Linux 当前没有对应入口，这属于已登记的平台系统集成差异。不得为了“四版功能完全一致”强行复制相同图标或系统 API，也不得因此改动共享统计核心；已提供入口的平台必须保持隐藏/恢复的用户可观察结果一致。
 
@@ -114,4 +114,11 @@ Linux 当前没有对应入口，这属于已登记的平台系统集成差异�
 
 ## 验证约束（2026-11-06）
 
-按用户要求，不在 GitHub Actions 做测试。仅用本机及自有测试机；Windows 验证等待自有主机开机。详见 [本轮对齐](docs/PLATFORM_PARITY_1.6.3.md)。
+按用户要求，不在 GitHub Actions 做测试。仅用本机及自有测试机；Windows 已于 2026-11-08 在自有 Windows 11 测试机完成原生构建与交互验证。详见 [本轮对齐](docs/PLATFORM_PARITY_1.6.3.md)。
+
+## v1.0.0 已登记的平台材质与网络检测差异
+
+- macOS Glass 保留专属透明表盘与虹彩聚光；Normal 保留主题配色。Windows 工具窗口使用系统 Desktop Acrylic，在关闭透明效果或高对比度下回退；Linux 使用 GTK 主题。
+- macOS/Windows 的内嵌网络检测和 Linux 打开的 Ailyre 完整检测页使用同一套 DNS/WebRTC/DoH 判定与可滚动结果卡片。Linux 原生面板只对其实际检测的出口、地区、IPv6 和 AI 分流作结论，浏览器项目明确提供完整检测入口。
+- 统计日志只读；生成速度仍每三分钟刷新，缺少真实时序证据不估算 TTFT。
+- OmniClock 显示名与导出图片已统一；内部 TokenClock 二进制、存储路径、Bundle ID 和兼容协议保留，避免丢失历史或更换凭据作用域。旧 Git 标签不重写，新发布使用 `omniclock-v1.0.0`。

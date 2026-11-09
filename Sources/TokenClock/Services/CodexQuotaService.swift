@@ -281,7 +281,7 @@ final class CodexQuotaService: @unchecked Sendable {
                 "params": [
                     "clientInfo": [
                         "name": "tokenclock",
-                        "title": "TokenClock",
+                        "title": "OmniClock",
                         "version": "1.0",
                     ],
                 ],

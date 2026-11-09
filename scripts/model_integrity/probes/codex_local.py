@@ -77,7 +77,7 @@ class RPC:
         self.reader = threading.Thread(target=self._read, daemon=True)
         self.reader.start()
         try:
-            self.call('initialize', {'clientInfo': {'name': 'tokenclock_model_check', 'title': 'TokenClock', 'version': '1'},
+            self.call('initialize', {'clientInfo': {'name': 'tokenclock_model_check', 'title': 'OmniClock', 'version': '1'},
                                      'capabilities': {'experimentalApi': True}})
             self.send({'method': 'initialized', 'params': {}})
         except BaseException:
@@ -382,7 +382,7 @@ def run_analysis(source_path, comparison_model=None, semantic_config=None, progr
               'summary': {'status': result['status'], 'identity_status': 'not_authenticated'},
               'identity_probability': None, 'user_summary': {'brief': brief}}
     write_json(out/'report.json', report); write_json(out/'observation.json', result)
-    page = '<!doctype html><meta charset="utf-8"><title>TokenClock · Codex</title><h1>'+brief['title']+'</h1><p>'+brief['summary']+'</p><p>'+brief['caveat']+'</p><details><summary>查看记录</summary><pre>'+html.escape(json.dumps(result, ensure_ascii=False, indent=2))+'</pre></details>'
+    page = '<!doctype html><meta charset="utf-8"><title>OmniClock · Codex</title><h1>'+brief['title']+'</h1><p>'+brief['summary']+'</p><p>'+brief['caveat']+'</p><details><summary>查看记录</summary><pre>'+html.escape(json.dumps(result, ensure_ascii=False, indent=2))+'</pre></details>'
     (out/'report.html').write_text(page)
     archive_evidence(evidence, out/'evidence.zip')
     return report

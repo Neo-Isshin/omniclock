@@ -246,7 +246,7 @@ final class ModelIntegrityLauncher: @unchecked Sendable {
             }
             let python = try pythonExecutable(environment: childEnvironment)
             return ModelIntegrityLaunchConfiguration(executableURL: python,
-                arguments: ["-B", "-I", worker.path, "serve", "--state-dir", stateDirectory.path],
+                arguments: ["-X", "utf8", "-B", "-I", worker.path, "serve", "--state-dir", stateDirectory.path],
                 workingDirectory: worker.deletingLastPathComponent(), environment: childEnvironment)
         }
         #if DEBUG

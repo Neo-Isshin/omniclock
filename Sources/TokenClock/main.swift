@@ -17,11 +17,11 @@ struct TokenClockApp: App {
 
     var body: some Scene {
         // 所有窗口由 AppDelegate 创建，这里放空场景避免 SwiftUI 报错
-        WindowGroup("TokenClock") {
+        WindowGroup("OmniClock") {
             EmptyView()
                 .frame(width: 0, height: 0)
                 .onAppear {
-                    if let window = NSApplication.shared.windows.first(where: { $0.title == "TokenClock" }) {
+                    if let window = NSApplication.shared.windows.first(where: { $0.title == "OmniClock" }) {
                         window.close()
                     }
                 }
