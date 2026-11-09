@@ -56,6 +56,14 @@ enum MacVariantSwitcher {
         return asset
     }
 
+    /// A same-version hotfix has new bytes at the same public asset name.
+    /// Derive a cache key from the already-validated digest instead of reusing a stale CDN entry.
+    static func downloadURL(for asset: Asset) -> URL {
+        var parts = URLComponents(url: asset.browser_download_url, resolvingAgainstBaseURL: false)!
+        parts.queryItems = [URLQueryItem(name: "sha256", value: String(asset.digest!.dropFirst(7)).lowercased())]
+        return parts.url!
+    }
+
     static func archiveEntryIsSafe(_ entry: String) -> Bool {
         let clean = entry.hasPrefix("./") ? String(entry.dropFirst(2)) : entry
         let parts = clean.split(separator: "/", omittingEmptySubsequences: true)
@@ -73,7 +81,7 @@ enum MacVariantSwitcher {
         let (metadata, response) = try await URLSession.shared.data(for: request)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw Failure("Unable to read release metadata.") }
         let asset = try decodeAsset(metadata, variant: target, version: AppConfig.version)
-        let (archive, downloadResponse) = try await URLSession.shared.data(for: URLRequest(url: asset.browser_download_url, timeoutInterval: 60))
+        let (archive, downloadResponse) = try await URLSession.shared.data(for: URLRequest(url: downloadURL(for: asset), timeoutInterval: 60))
         guard (downloadResponse as? HTTPURLResponse)?.statusCode == 200, archive.count == asset.size,
               SHA256.hash(data: archive).map({ String(format: "%02x", $0) }).joined() == String(asset.digest!.dropFirst(7)).lowercased() else {
             throw Failure("The downloaded package failed SHA-256 verification.")

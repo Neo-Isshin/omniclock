@@ -1,6 +1,6 @@
 # Claude Desktop OAuth quota reader
 
-Scope: macOS Glass and Normal, based on OmniClock v1.0.0. The installed runtime is unchanged until a signed-in Claude App can provide a real quota response.
+Scope: macOS Glass and Normal, based on OmniClock v1.0.0. This code ships as macOS v1.0.0 Hotfix 1 for reporter validation. The home Mac runtime is unchanged because no live signed-in App account is available there.
 
 ## Confirmed source
 
