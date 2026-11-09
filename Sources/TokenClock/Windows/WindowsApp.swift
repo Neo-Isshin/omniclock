@@ -964,11 +964,11 @@ final class WindowsApp: @unchecked Sendable {
 
     private func showAbout() {
         let en = L10n.shared.language == .en
-        guard let dlg = dlg_create(en ? "About TokenClock" : "关于 TokenClock", 360, 430) else { return }
+        guard let dlg = dlg_create(en ? "About OmniClock" : "关于 OmniClock", 360, 430) else { return }
         aboutDlg = dlg
         defer { aboutDlg = nil; dlg_destroy(dlg) }
         dlg_add_brand_logo(dlg, 136, 22, 88, 88)
-        dlg_add_title(dlg, "TokenClock", 112, 120, 180, 30)
+        dlg_add_title(dlg, "OmniClock", 112, 120, 180, 30)
         dlg_add_static(dlg, "v1.5.6", 154, 154, 90, 22)
         dlg_add_sep(dlg, 28, 188, 304)
         dlg_add_static(dlg, "Copyright © 2026 Neo-Isshin", 78, 210, 250, 22)
@@ -1263,7 +1263,7 @@ final class WindowsApp: @unchecked Sendable {
         loadSettingsPricingRows()
 
         let en = L10n.shared.language == .en
-        guard let dlg = dlg_create(en ? "TokenClock Settings" : "TokenClock 设置", 520, 620) else { return }
+        guard let dlg = dlg_create(en ? "OmniClock Settings" : "OmniClock 设置", 520, 620) else { return }
         settingsDlg = dlg
         renderSettingsAccordion(scrollToExpanded: false)
         let result = dlg_modal_cb(dlg, settingsCmdCb, nil)
@@ -1321,7 +1321,7 @@ final class WindowsApp: @unchecked Sendable {
         let expandedHeight = expandedSettingsSection.map(settingsSectionHeight) ?? 0
         let contentHeight: Int32 = 76 + Int32(rows.count * 56) + expandedHeight + 72
         dlg_reset_content(dlg, contentHeight)
-        dlg_add_title(dlg, en ? "TokenClock Settings" : "TokenClock 设置", 24, 14, 330, 30)
+        dlg_add_title(dlg, en ? "OmniClock Settings" : "OmniClock 设置", 24, 14, 330, 30)
         dlg_add_subtitle(dlg, en ? "Expand a section to review and edit it." : "展开一个分组进行查看与编辑。", 24, 48, 450, 20)
 
         var y: Int32 = 76

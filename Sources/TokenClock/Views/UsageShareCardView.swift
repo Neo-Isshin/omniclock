@@ -95,7 +95,7 @@ struct UsageShareCardView: View {
                         .padding(5*scale).background(.white.opacity(0.92),in:RoundedRectangle(cornerRadius:10*scale))
                 }
                 VStack(alignment: .leading, spacing: 2 * scale) {
-                    Text("TokenClock · Ailyre").font(.system(size: 17 * scale, weight: .bold, design: .rounded))
+                    Text("OmniClock · Ailyre").font(.system(size: 17 * scale, weight: .bold, design: .rounded))
                     Text(L10n.shared.tr("share.report"))
                         .font(.system(size: 8 * scale, weight: .semibold, design: .monospaced))
                         .foregroundColor(foreground.opacity(artwork == nil ? 0.48 : 0.72))
@@ -238,7 +238,7 @@ struct UsageShareCardView: View {
     }
     private var footer: some View {
         HStack {
-            Text("TokenClock · Ailyre")
+            Text("OmniClock · Ailyre")
             Spacer()
             Text("www.ailyre.com")
         }

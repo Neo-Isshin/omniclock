@@ -21,8 +21,8 @@
 <div align="center">
 <table>
   <tr>
-    <td align="center" valign="bottom"><img src="https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/docs/screenshots/glass.png" alt="Liquid Glass clock" width="220"><br><sub><b>Liquid Glass</b><br>A glanceable desktop overview</sub></td>
-    <td align="center" valign="bottom"><img src="https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/docs/screenshots/dropdown.png" alt="Usage details" width="230"><br><sub><b>Usage details</b><br>Tools, sessions, and models</sub></td>
+    <td align="center" valign="bottom"><img src="docs/screenshots/glass.png" alt="Liquid Glass clock" width="220"><br><sub><b>Liquid Glass</b><br>A glanceable desktop overview</sub></td>
+    <td align="center" valign="bottom"><img src="docs/screenshots/dropdown.png" alt="Usage details" width="230"><br><sub><b>Usage details</b><br>Tools, sessions, and models</sub></td>
     <td align="center" valign="bottom"><img src="docs/screenshots/normal_en.png" alt="Normal clock edition" width="220"><br><sub><b>Normal</b><br>Theme-aware native presentation</sub></td>
   </tr>
 </table>
@@ -32,7 +32,7 @@
 
 **OmniClock**, formerly **TokenClock**, brings the everyday details of working with AI into one desktop companion. The clock shows activity and selected quotas; its panels provide usage history, costs, a notebook, AI news, and local or network diagnostics.
 
-The repository retains its history. The primary macOS/Linux command is now `omniclock`; existing `tokenclock` commands remain compatible. This rename keeps the current release versions: **v1.6.3 for macOS and Linux**, and the previous verified **v1.5.12 Windows build**. It does not announce a v1.0.0 application release.
+**OmniClock v1.0.0** is available for macOS Glass, macOS Normal, Windows and Linux. The repository retains its history. Use `omniclock` on macOS/Linux; existing `tokenclock` commands, settings and usage history remain compatible.
 
 ## Features
 
@@ -46,20 +46,20 @@ The repository retains its history. The primary macOS/Linux command is now `omni
 | **Network Toolbox** | Run DNS/DoH, WebRTC, IPv6, exit-IP/location, AI-domain routing, and mainland-reachability reference checks on demand. Results distinguish possible issues from inconclusive checks. |
 | **Local Toolbox and Model Detect** | Inspect environment conflicts and disk use, scan logs locally for exposed secrets, check clock offset, and validate configured API keys with masked results. Model Detect reviews available session evidence and supports explicitly initiated external checks. |
 
-The macOS summary panel brings together hourly usage, comparison with yesterday, cache use, quota reset times, the notebook, and tool/model lists. Shortcut visibility and order are editable. Linux provides corresponding functions through its native menus and panels; some checks open the browser.
+The macOS and Windows summary panels bring together hourly usage, comparison with yesterday, cache use, quota reset times, the notebook, and tool/model lists. Shortcut visibility and order are editable. Linux provides corresponding functions through its native menus and panels; some checks open the browser.
 
 ## Platforms
 
 | Platform | Edition | Current distribution |
 |---|---|---|
-| macOS 26+ | Glass or Normal | v1.6.3 universal packages for Apple Silicon and Intel |
-| macOS 12–25 | Normal | v1.6.3 universal package; opaque themed dial |
-| Linux x86_64 | Normal, GTK3/Cairo | v1.6.3 AppImage; glibc 2.35+; extraction fallback when FUSE is unavailable |
-| Windows 11 x86_64 | Normal, Win32 | Previous verified v1.5.12 package; newer feature parity and binaries await testing on the project's own Windows machine |
+| macOS 26+ | Glass or Normal | v1.0.0 universal packages for Apple Silicon and Intel |
+| macOS 12–25 | Normal | v1.0.0 universal package; opaque themed dial |
+| Linux x86_64 | Normal, GTK3/Cairo | v1.0.0 AppImage; glibc 2.35+; extraction fallback when FUSE is unavailable |
+| Windows 11 x86_64 | Normal, Win32 | v1.0.0 portable package; native Acrylic panels with system fallback |
 
 Glass has its own transparent materials and optical effects. Normal keeps its own themes and contrast rules. In Normal, the quick **Text Color** control affects the detail panel; dial text has a separate appearance setting.
 
-Windows does **not** yet include every feature listed for current macOS/Linux builds. New Windows packages are not published until native validation resumes. Project tests run locally or on project-owned machines, not GitHub Actions.
+Shared accounting, pricing, history and release versions are aligned. Windows uses Win32/WebView2 with native Acrylic; Linux keeps GTK panels and opens browser-only DNS/WebRTC checks on the Ailyre page. Project tests run locally or on project-owned machines, not GitHub Actions.
 
 ## Installation
 
@@ -104,7 +104,7 @@ macOS may request permission to access protected or external-disk folders. Curre
 & ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1)))
 ```
 
-This installs the existing verified Windows package for the current user, with SHA-256 verification. The installation path and executable retain the TokenClock name for compatibility. The `omniclock`/`tokenclock` shell commands described above apply to macOS and Linux.
+This installs the verified Windows v1.0.0 package for the current user, with SHA-256 verification. The installation path and executable retain the TokenClock name for compatibility. The `omniclock`/`tokenclock` shell commands described above apply to macOS and Linux.
 
 <details>
 <summary>Windows installer options</summary>
@@ -128,14 +128,14 @@ This installs the existing verified Windows package for the current user, with S
 - **Use the first-row shortcuts** for tools and history. The shortcut editor controls visibility and order.
 - **Switch to AI digest** to read news within the lower part of the dropdown; use Back to return to usage.
 - **Open Subscription Quota** to select providers and accounts for the dial. Click a ring to advance when multiple groups are available; right-click it to open the quota panel.
-- **On macOS, click the menu-bar icon** for today's summary. Double-click to bring the dial temporarily forward or hide it; the right-click menu also provides visibility controls.
+- **On macOS/Windows, click the menu-bar/tray icon** for today's summary. Double-click to bring the dial temporarily forward or hide it; the right-click menu also provides visibility controls.
 - **Right-click the dial** for general and appearance settings, source paths, notifications, updates, and restart.
 
 The detail panel supports horizontal resizing, and notifications support resizing in both directions. On some nonactivating macOS panels, the pointer may remain an arrow at a resizable edge; the bottom resize handle remains available.
 
 ## Supported data sources
 
-Current macOS/Linux sources cover Codex, Claude Code, Cursor Agent, Grok Bot, Antigravity, OpenClaw, Gemini CLI, Hermes, OpenCode, Qwen Code, Copilot CLI, Grok CLI, Aider, Cline, Continue, ZCode, Kilo Code, Pi, OMP, PiG, DSH, Command Code, and Freebuff, subject to the records each tool actually saves.
+Current sources across the four editions cover Codex, Claude Code, Cursor Agent, Grok Bot, Antigravity, OpenClaw, Gemini CLI, Hermes, OpenCode, Qwen Code, Copilot CLI, Grok CLI, Aider, Cline, Continue, ZCode, Kilo Code, Pi, OMP, PiG, DSH, Command Code, and Freebuff, subject to the records each tool actually saves.
 
 - Custom paths and external disks can be selected in **Settings → Data Source Paths**.
 - Freebuff exposes completed local reply counts, not token receipts; these counts are excluded from token and API-equivalent cost totals.
@@ -167,11 +167,11 @@ The port is configurable. API-equivalent costs carry `costBasis: "api_equivalent
 ## Screenshots
 
 <div align="center">
-<p><img src="https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/docs/screenshots/usage_overview.png" alt="Usage history" width="780"></p>
+<p><img src="docs/screenshots/usage_overview.png" alt="Usage history" width="780"></p>
 <table>
   <tr>
-    <td align="center"><img src="https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/docs/screenshots/subscription_quota.png" alt="Subscription quota panel" width="460"></td>
-    <td align="center"><img src="https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/docs/screenshots/themes.png" alt="Theme selection" width="280"></td>
+    <td align="center"><img src="docs/screenshots/subscription_quota.png" alt="Subscription quota panel" width="460"></td>
+    <td align="center"><img src="docs/screenshots/themes.png" alt="Theme selection" width="280"></td>
   </tr>
 </table>
 </div>
@@ -183,7 +183,7 @@ git clone https://github.com/Neo-Isshin/omniclock.git
 cd omniclock
 ```
 
-`main` contains macOS Glass, `normal` contains macOS Normal, and `codex/linux-theme-parity` contains the current Linux edition. Internal Swift targets and bundle names retain `TokenClock` for compatibility. See [platform behavior](PLATFORM_PARITY.md) and [Model Detect integration](docs/MODEL_DETECT_INTEGRATION.md) before changing shared components.
+`main` contains macOS Glass, `normal` contains macOS Normal, `windows-port` contains Windows, and `codex/linux-theme-parity` contains Linux. Internal Swift targets and bundle names retain `TokenClock` for compatibility. See [platform behavior](PLATFORM_PARITY.md) and [Model Detect integration](docs/MODEL_DETECT_INTEGRATION.md) before changing shared components.
 
 Run `omniclock doctor` first if an installation is not behaving as expected. For missing usage, check that the selected source path contains real usage records. For quota failures, distinguish a missing local record, permission request, expired sign-in, and provider-side rejection.
 

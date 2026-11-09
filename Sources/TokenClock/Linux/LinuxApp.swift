@@ -117,7 +117,7 @@ final class LinuxApp: @unchecked Sendable {
         guard let createdWindow = gtk_window_new(GTK_WINDOW_TOPLEVEL) else { return }
         window = createdWindow
         let diameter = gint(selectedSize.diameter)
-        gtk_window_set_title(tc_gtk_window(createdWindow), "TokenClock")
+        gtk_window_set_title(tc_gtk_window(createdWindow), "OmniClock")
         gtk_window_set_default_size(tc_gtk_window(createdWindow), diameter, diameter)
         gtk_window_set_resizable(tc_gtk_window(createdWindow), 0)
         gtk_window_set_decorated(tc_gtk_window(createdWindow), 0)

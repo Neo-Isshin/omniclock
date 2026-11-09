@@ -56,23 +56,6 @@ class ReleasePublisherTests(unittest.TestCase):
             self.assertNotIn("TokenClock/private-untracked.txt", archive.getnames())
             self.assertEqual(archive.extractfile("TokenClock/cli/install.sh").read(), b"fixture install.sh\n")
 
-    def test_deferred_windows_preserves_its_previous_release(self):
-        self.publish("v1.5.12")
-        windows_before = (self.site / "releases/latest-windows.json").read_bytes()
-        for name in publisher.FILES:
-            if "windows" in name:
-                (self.assets / name).unlink()
-        release = self.publish("v1.5.13", without_windows=True)
-        self.assertEqual(len(release["assets"]), 4)
-        self.assertFalse(any("windows" in item["name"] for item in release["assets"]))
-        self.assertEqual((self.site / "releases/latest-windows.json").read_bytes(), windows_before)
-        self.assertEqual(json.loads((self.site / "releases/latest.json").read_text())["tag_name"], "v1.5.13")
-        self.assertIn("Windows build pending", (self.site / "releases/v1.5.13/index.html").read_text())
-
-    def test_deferred_windows_does_not_create_a_fake_windows_release(self):
-        self.publish("v1.5.13", without_windows=True)
-        self.assertFalse((self.site / "releases/latest-windows.json").exists())
-
     def test_bad_checksum_and_missing_asset_do_not_publish_latest(self):
         (self.assets / "TokenClock-windows-x86_64.zip.sha256").write_text("0" * 64)
         with self.assertRaises(ValueError):
@@ -90,6 +73,40 @@ class ReleasePublisherTests(unittest.TestCase):
             self.publish()
         self.assertEqual((self.site / "releases/latest.json").read_bytes(), latest)
 
+    def test_old_brand_release_cannot_roll_back_new_feed(self):
+        newer=self.publish("omniclock-v1.0.1")
+        publisher.stage_omniclock_feeds(self.site,newer)
+        older=self.publish("omniclock-v1.0.0")
+        publisher.stage_omniclock_feeds(self.site,older)
+        self.assertEqual(json.loads((self.site/"releases/omniclock-latest.json").read_text())["tag_name"],"omniclock-v1.0.1")
+        self.assertEqual(json.loads((self.site/"releases/latest.json").read_text())["product_version"],"1.0.1")
+
+    def test_migration_feed_preserves_discoverability_for_legacy_clients(self):
+        release=self.publish("omniclock-v1.0.0")
+        publisher.stage_omniclock_feeds(self.site,release)
+        self.assertEqual(json.loads((self.site/"releases/omniclock-latest.json").read_text())["tag_name"],"omniclock-v1.0.0")
+        old=json.loads((self.site/"releases/latest.json").read_text())
+        self.assertEqual(old["tag_name"],"v1.6.4")
+        self.assertEqual(old["product_version"],"1.0.0")
+        self.assertTrue((self.site/"releases/v1.6.4/index.html").exists())
+
+    def test_branded_downloads_keep_installer_aliases(self):
+        release=self.publish("omniclock-v1.0.0")
+        target=self.site / "releases/download/omniclock-v1.0.0"
+        self.assertEqual((target/"OmniClock-windows-x86_64.zip").read_bytes(),(target/"TokenClock-windows-x86_64.zip").read_bytes())
+        self.assertIn("OmniClock-windows-x86_64.zip",(target/"OmniClock-windows-x86_64.zip.sha256").read_text())
+        page=(self.site/"releases/omniclock-v1.0.0/index.html").read_text()
+        self.assertIn("OmniClock-windows-x86_64.zip",page)
+        self.assertNotIn("TokenClock-windows-x86_64.zip",page)
+        self.assertEqual(len(release["assets"]),12)
+
+    def test_omniclock_namespace_can_follow_higher_tokenclock_version(self):
+        self.publish("v1.6.3")
+        self.publish("omniclock-v1.0.0")
+        self.assertEqual(json.loads((self.site / "releases/latest.json").read_text())["tag_name"], "omniclock-v1.0.0")
+        self.publish("v1.6.4")
+        self.assertEqual(json.loads((self.site / "releases/latest.json").read_text())["tag_name"], "omniclock-v1.0.0")
+
     def test_older_version_does_not_replace_latest(self):
         self.publish("v1.5.12")
         self.publish("v1.5.11")
@@ -99,6 +116,37 @@ class ReleasePublisherTests(unittest.TestCase):
         for version in ("../escape", "v1.5.12-rc.1", "v01.5.12", "1.5.12"):
             with self.assertRaises(ValueError):
                 self.publish(version)
+
+    def test_deferred_windows_preserves_its_previous_release(self):
+        self.publish("v1.5.12")
+        windows_before = (self.site / "releases/latest-windows.json").read_bytes()
+        for name in publisher.FILES:
+            if "windows" in name:
+                (self.assets / name).unlink()
+        release = self.publish("v1.5.13", without_windows=True)
+        self.assertEqual(len(release["assets"]), 4)
+        self.assertFalse(any("windows" in item["name"] for item in release["assets"]))
+        self.assertEqual((self.site / "releases/latest-windows.json").read_bytes(), windows_before)
+        self.assertEqual(json.loads((self.site / "releases/latest.json").read_text())["tag_name"], "v1.5.13")
+        self.assertIn("Windows build pending", (self.site / "releases/v1.5.13/index.html").read_text())
+
+    def test_deferred_windows_does_not_create_a_fake_windows_release(self):
+        self.publish("v1.5.13", without_windows=True)
+        self.assertFalse((self.site / "releases/latest-windows.json").exists())
+
+    def test_glass_patch_preserves_other_channels_and_does_not_relabel_them(self):
+        self.publish("v1.6.0")
+        windows_before = (self.site / "releases/latest-windows.json").read_bytes()
+        normal_before = (self.site / "releases/download/v1.6.0/TokenClock-normal-universal.tar.gz").read_bytes()
+        for file in self.assets.iterdir():
+            if file.name != "TokenClock-glass-universal.tar.gz":
+                file.unlink()
+        release = publisher.publish("v1.6.1", self.assets, self.site, self.repo, [("glass", "HEAD")], only_glass=True)
+        self.assertEqual([a["name"] for a in release["assets"]], ["TokenClock-glass-universal.tar.gz"])
+        self.assertEqual((self.site / "releases/latest-windows.json").read_bytes(), windows_before)
+        self.assertEqual((self.site / "releases/download/v1.6.0/TokenClock-normal-universal.tar.gz").read_bytes(), normal_before)
+        self.assertFalse((self.site / "releases/download/v1.6.1/TokenClock-normal-universal.tar.gz").exists())
+        self.assertIn("updates macOS Glass only", (self.site / "releases/v1.6.1/index.html").read_text())
 
 
 if __name__ == "__main__":

@@ -4,3 +4,6 @@
 xcuserdata/
 *.xcodeproj/
 DerivedData/
+
+# Isolated local release checks
+.build-tests/
