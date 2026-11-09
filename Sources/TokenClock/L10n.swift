@@ -76,6 +76,8 @@ final class L10n: @unchecked Sendable {
     private let table: [String: [AppLanguage: String]] = [
         "quota.claudeRetryLocal": [.zhHans:"重试读取额度",.zhHant:"重試讀取額度",.en:"Retry quota read"],
         "quota.claudeAuthorizeFallback": [.zhHans:"授权备用本机登录（可选）",.zhHant:"授權備用本機登入（可選）",.en:"Authorize another local sign-in (optional)"],
+        "quota.claudeLoginChanged": [.zhHans:"Claude 登录状态已变化，稍后会自动重试。",.zhHant:"Claude 登入狀態已變更，稍後會自動重試。",.en:"Claude sign-in changed. An automatic retry will follow."],
+        "quota.claudeAppOAuthSource": [.zhHans:"Claude App · 共享订阅额度",.zhHant:"Claude App · 共用訂閱額度",.en:"Claude App · Shared subscription quota"],
         "quota.claudeResponseCacheSource": [.zhHans:"Claude App · 本地额度响应",.zhHant:"Claude App · 本機額度回應",.en:"Claude App · Saved usage response"],
         "quota.claudeResponseCacheNote": [.zhHans:"来自原 App 保存的真实额度；下方为实际采样时间，未额外联网。",.zhHant:"來自原 App 儲存的真實額度；下方為實際取樣時間，未額外連線。",.en:"Real usage saved by Claude App, with its original observation time. No extra network request was made."],
 

@@ -22,7 +22,7 @@ struct ClaudeQuotaIdentity: Equatable, Sendable {
 }
 
 enum ClaudeQuotaReadFailure: Equatable, Sendable {
-    case noCredential, authentication, localAuthorization, permission, network, blocked, rateLimited, malformed, identityUnknown, wrongAccount
+    case sourceChanged, noCredential, authentication, localAuthorization, permission, network, blocked, rateLimited, malformed, identityUnknown, wrongAccount
     static func messageKey(_ key: String) -> Self {
         switch key {
         case "quota.claudeConnectRequired": return .authentication
@@ -78,11 +78,12 @@ enum ClaudeQuotaReadPolicy {
             guard owner != nil else {return cachedResult(value)}
         }
         let app=desktop()
+        if app.readFailure == .sourceChanged {return app}
         if let result=accept(app,constrained:selectedWeb) {return result}
         failures.append(app)
         let sameOAuthSource = !selectedWeb && app.readFailure == .noCredential && previous?.source == .oauthAPI
         if !selectedWeb {
-            owner = app.verifiedIdentity ?? (sameOAuthSource ? nil : previous?.verifiedIdentity ?? ClaudeQuotaIdentity(key:previous?.account?.id))
+            owner = app.verifiedIdentity ?? app.selectedIdentityHint ?? (sameOAuthSource ? nil : previous?.verifiedIdentity ?? ClaudeQuotaIdentity(key:previous?.account?.id))
         }
         if app.readFailure == .rateLimited {return cachedResult(app)}
         let cli=oauth()
