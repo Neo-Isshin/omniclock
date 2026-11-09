@@ -168,7 +168,7 @@ final class LinuxDetailsPanel: @unchecked Sendable {
               let createdCard = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0) else { return }
         window = createdWindow
         card = createdCard
-        gtk_window_set_title(tc_gtk_window(createdWindow), "TokenClock Details")
+        gtk_window_set_title(tc_gtk_window(createdWindow), "OmniClock Details")
         gtk_window_set_decorated(tc_gtk_window(createdWindow), 0)
         gtk_window_set_resizable(tc_gtk_window(createdWindow), 0)
         gtk_window_set_skip_taskbar_hint(tc_gtk_window(createdWindow), 1)

@@ -10,11 +10,11 @@ struct TokenClockApp: App {
         // 而 @SceneBuilder 不支持 if #available（无 buildEither），some Scene 又不允许
         // 两分支不同类型 —— 无法条件应用。占位窗是 0x0 EmptyView 且 onAppear 立即关闭，
         // 省略这两个修饰符对实际表现无影响（真实时钟窗口由 AppDelegate 的 NSPanel 独立管理）。
-        WindowGroup("TokenClock") {
+        WindowGroup("OmniClock") {
             EmptyView()
                 .frame(width: 0, height: 0)
                 .onAppear {
-                    if let window = NSApplication.shared.windows.first(where: { $0.title == "TokenClock" }) {
+                    if let window = NSApplication.shared.windows.first(where: { $0.title == "OmniClock" }) {
                         window.close()
                     }
                 }

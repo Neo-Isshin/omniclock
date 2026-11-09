@@ -96,7 +96,7 @@ static void add_tray(void) {
     nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     nid.uCallbackMessage = WM_TRAY;
     nid.hIcon = LoadIconW(NULL, IDI_APPLICATION);
-    wcscpy_s(nid.szTip, ARRAYSIZE(nid.szTip), L"TokenClock");
+    wcscpy_s(nid.szTip, ARRAYSIZE(nid.szTip), L"OmniClock");
     Shell_NotifyIconW(NIM_ADD, &nid);
     nid.uVersion = NOTIFYICON_VERSION_4;
     Shell_NotifyIconW(NIM_SETVERSION, &nid);
@@ -261,7 +261,7 @@ static HWND ensure_detail_window(void) {
         registered = 1;
     }
     DWORD ex_style = WS_EX_TOOLWINDOW | (g_topmost ? WS_EX_TOPMOST : 0);
-    g_detail_hwnd = CreateWindowExW(ex_style, L"TokenClockDetail", L"TokenClock Details",
+    g_detail_hwnd = CreateWindowExW(ex_style, L"TokenClockDetail", L"OmniClock Details",
                                     WS_POPUP, 0, 0, g_detail_width, g_detail_height,
                                     g_hwnd, NULL, GetModuleHandleW(NULL), NULL);
     return g_detail_hwnd;
@@ -462,7 +462,7 @@ int win_run(const win_callbacks *cb) {
     HWND hwnd = CreateWindowExW(
         WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
         wc.lpszClassName,
-        cb->window_title ? cb->window_title : L"TokenClock",
+        cb->window_title ? cb->window_title : L"OmniClock",
         WS_POPUP,
         x, y, w, h,
         NULL, NULL, wc.hInstance, NULL);

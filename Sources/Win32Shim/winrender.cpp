@@ -833,7 +833,7 @@ static Gdiplus::Bitmap *render_share_card(const win_share_card *card) {
     Gdiplus::Pen brand(accent[variant], 5.0f);
     gfx.DrawEllipse(&brand, 76, 6, 78, 78);
     share_draw_text(gfx, L"◷", 37, 700, 78, 7, 74, 76, 1, accent[variant]);
-    share_draw_text(gfx, L"TokenClock", 35, 700, 176, 7, 420, 54, 0, fg);
+    share_draw_text(gfx, L"OmniClock", 35, 700, 176, 7, 420, 54, 0, fg);
     share_draw_text(gfx, report, 17, 700, 176, 58, 420, 34, 0, subtle);
     share_draw_text(gfx, period, 24, 700, 770, 12, 354, 42, 2, fg);
     share_draw_text(gfx, date, 18, 600, 710, 61, 414, 34, 2, subtle);

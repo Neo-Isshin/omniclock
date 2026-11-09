@@ -550,8 +550,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard let variant = LaunchAgentHelper.detectVariant() else {
             // 路径无法识别 —— 用一个 NSAlert 提示,不要静默失败
             let alert = NSAlert()
-            alert.messageText = "无法识别当前 TokenClock 变体"
-            alert.informativeText = "开机自启动仅在通过 `tokenclock` CLI 安装的 TokenClock 上可用(路径形如 ~/.tokenclock/glass/TokenClock)。"
+            alert.messageText = "无法识别当前 OmniClock 变体"
+            alert.informativeText = "开机自启动仅在通过 `omniclock` CLI 安装的 OmniClock 上可用(路径形如 ~/.tokenclock/glass/TokenClock)。"
             alert.alertStyle = .warning
             alert.addButton(withTitle: "好的")
             alert.runModal()

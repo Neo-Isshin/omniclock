@@ -9,8 +9,8 @@ final class ReleaseUpdateService: @unchecked Sendable {
     static let shared = ReleaseUpdateService()
     #endif
     static let checkInterval: TimeInterval = 12 * 3600
-    private static let checkKey = "TC_releaseLastScheduledCheckAt"
-    private static let noticeKey = "TC_releaseUpdateNotice"
+    private static let checkKey = "OC_releaseLastScheduledCheckAt"
+    private static let noticeKey = "OC_releaseUpdateNotice"
     private let defaults: UserDefaults
     private let installedVersion: String
     private let fetch: @Sendable () -> Data?
@@ -54,7 +54,8 @@ final class ReleaseUpdateService: @unchecked Sendable {
 
     /// Strict stable versions only. Numeric comparison avoids v1.5.9 > v1.5.11.
     static func version(_ tag: String) -> [Int]? {
-        let text = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+        let branded = tag.hasPrefix("omniclock-v") ? String(tag.dropFirst("omniclock-".count)) : tag
+        let text = branded.hasPrefix("v") ? String(branded.dropFirst()) : branded
         let pieces = text.split(separator: ".", omittingEmptySubsequences: false)
         guard pieces.count == 3 else { return nil }
         let values = pieces.compactMap { piece -> Int? in
@@ -129,7 +130,7 @@ final class ReleaseUpdateService: @unchecked Sendable {
         let version = parts.map(String.init).joined(separator: ".")
         var notification = TokenClockNotification(
             id: notice.id, kind: .releaseUpdate,
-            title: BillingText.choose("TokenClock \(version) available", "TokenClock \(version) 可更新", "TokenClock \(version) 可更新"),
+            title: BillingText.choose("OmniClock \(version) available", "OmniClock \(version) 可更新", "OmniClock \(version) 可更新"),
             message: BillingText.choose("Current: \(installedVersion). Click to view the release.",
                                         "当前版本：\(installedVersion)。点击查看发布页。",
                                         "目前版本：\(installedVersion)。點擊查看發布頁。"),

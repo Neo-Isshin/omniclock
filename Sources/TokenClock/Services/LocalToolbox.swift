@@ -436,7 +436,7 @@ enum LocalLogScanner {
             if let data=text.data(using:.utf8),let object=try? JSONSerialization.jsonObject(with:data) as? [String:Any],let env=object["env"] as? [String:String] { fields.merge(env){_,v in v} }
             for (key,value) in fields where key.hasSuffix("BASE_URL") || key.hasSuffix("API_KEY") || ["model","model_provider","base_url"].contains(key) { values[key,default:[]].append((path,value)) }
         }
-        for (key,value) in ProcessInfo.processInfo.environment where key.hasSuffix("BASE_URL") || key.hasSuffix("API_KEY") { values[key,default:[]].append(("TokenClock process",value)) }
+        for (key,value) in ProcessInfo.processInfo.environment where key.hasSuffix("BASE_URL") || key.hasSuffix("API_KEY") { values[key,default:[]].append(("OmniClock process",value)) }
         // launchctl is only a source on macOS; native process/config sources remain read-only.
         #if os(macOS)
         for key in ["ANTHROPIC_BASE_URL","OPENAI_BASE_URL","ANTHROPIC_API_KEY","OPENAI_API_KEY"] {

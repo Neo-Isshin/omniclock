@@ -39,7 +39,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ -n "$VERSION" ] || { usage; die "missing version"; }
-case "$VERSION" in v[0-9]*.[0-9]*.[0-9]*) ;; *) die "version must look like v1.5.1" ;; esac
+case "$VERSION" in v[0-9]*.[0-9]*.[0-9]*|omniclock-v[0-9]*.[0-9]*.[0-9]*) ;; *) die "version must look like v1.5.1" ;; esac
 [ -n "$ASSETS_DIR" ] || die "--assets-dir is required"
 ASSETS_DIR="$(cd "$ASSETS_DIR" 2>/dev/null && pwd)" || die "asset directory does not exist"
 
@@ -93,14 +93,15 @@ done
 [ -x "$ASSETS_DIR/TokenClock-x86_64.AppImage" ] \
   || die "Linux AppImage is not executable"
 
-plain="${VERSION#v}"
+plain="${VERSION#omniclock-}"
+plain="${plain#v}"
 grep -q "static let version = \"$plain\"" "$ROOT/Sources/TokenClock/Config/AppConfig.swift" \
   || die "Release notification version is not $plain"
 grep -q "CLI_VERSION=\"$plain\"" "$ROOT/cli/tokenclock" || die "CLI version is not $plain"
 grep -q "glass)  echo \"$VERSION\"" "$ROOT/cli/install.sh" || die "Glass installer tag is not $VERSION"
 grep -q "normal) echo \"$VERSION\"" "$ROOT/cli/install.sh" || die "Normal installer tag is not $VERSION"
 grep -q "linux)  echo \"$VERSION\"" "$ROOT/cli/install.sh" || die "Linux installer tag is not $VERSION"
-grep -q "private let version = \"$VERSION\"" "$ROOT/Sources/TokenClock/Views/AboutView.swift" \
+grep -q "private let version = \"v$plain\"" "$ROOT/Sources/TokenClock/Views/AboutView.swift" \
   || die "macOS About version is not $VERSION"
 grep -q "\"$VERSION\"" "$ROOT/Sources/TokenClock/Windows/WindowsApp.swift" \
   || die "Windows About version is not $VERSION"

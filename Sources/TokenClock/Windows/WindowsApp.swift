@@ -2559,7 +2559,7 @@ final class WindowsApp: @unchecked Sendable {
             period: sharePeriod, includingCacheRead: shareIncludesCacheRead
         )
         var buffer = [CChar](repeating: 0, count: 1_024)
-        let suggested = "TokenClock-\(data.dateKey)-\(data.endDateKey).png"
+        let suggested = "OmniClock-\(data.dateKey)-\(data.endDateKey).png"
         let accepted = buffer.withUnsafeMutableBufferPointer { output in
             L10n.shared.tr("share.savePNG").withCString { title in
                 suggested.withCString { name in
@@ -2648,7 +2648,7 @@ final class WindowsApp: @unchecked Sendable {
         loadSettingsPricingRows()
 
         let en = L10n.shared.language == .en
-        guard let dlg = dlg_create(en ? "TokenClock Settings" : "TokenClock 设置", 520, 620) else { return }
+        guard let dlg = dlg_create(en ? "OmniClock Settings" : "OmniClock 设置", 520, 620) else { return }
         settingsDlg = dlg
         renderSettingsAccordion(scrollToExpanded: false)
         let result = dlg_modal_cb(dlg, settingsCmdCb, nil)
