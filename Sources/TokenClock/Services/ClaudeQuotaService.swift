@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 #if os(macOS)
 import CryptoKit
 #endif
@@ -8,6 +9,7 @@ import FoundationNetworking
 
 enum ClaudeQuotaSource: String, Sendable {
     case oauthAPI
+    case desktopOAuth
     case desktopCache
     case desktopResponseCache
     case desktopWeb
@@ -25,6 +27,8 @@ struct ClaudeQuotaSnapshot: Equatable, Sendable {
     var requiresConnection = false
 #if os(macOS)
     var verifiedIdentity: ClaudeQuotaIdentity? = nil
+    /// A local App selection only restricts fallback; it never establishes server identity.
+    var selectedIdentityHint: ClaudeQuotaIdentity? = nil
     var readFailure: ClaudeQuotaReadFailure? = nil
     var isCachedFallback = false
     var localAuthorizationRequired = false
@@ -35,6 +39,7 @@ struct ClaudeQuotaSnapshot: Equatable, Sendable {
         if readFailure == .identityUnknown { return L10n.shared.tr("quota.claudeUnverifiedSource") }
 #endif
         switch source {
+        case .desktopOAuth: return L10n.shared.tr("quota.claudeAppOAuthSource")
         case .desktopCache: return L10n.shared.tr("quota.claudeCacheSource")
         case .desktopResponseCache: return L10n.shared.tr("quota.claudeResponseCacheSource")
         case .desktopWeb: return L10n.shared.tr("quota.claudeAppSource")
@@ -76,6 +81,7 @@ final class ClaudeQuotaService: @unchecked Sendable {
         let accessToken: String
         let subscriptionType: String?
         let rateLimitTier: String?
+        var expiresAt: Date? = nil
     }
 
     struct AccountProfile: Equatable, Sendable {
@@ -115,6 +121,7 @@ final class ClaudeQuotaService: @unchecked Sendable {
     private let appPasswordCache = ClaudeAppPasswordCache()
     #endif
     private let oauthTransport: OAuthTransport?
+    private let appPasswordReader: (@Sendable () -> String?)?
     private let fileManager: FileManager
     private let environment: [String: String]
     private let homeDirectory: String
@@ -127,9 +134,11 @@ final class ClaudeQuotaService: @unchecked Sendable {
         environment: [String: String] = ProcessInfo.processInfo.environment,
         homeDirectory: String = NSHomeDirectory(),
         fileManager: FileManager = .default,
-        oauthTransport: OAuthTransport? = nil
+        oauthTransport: OAuthTransport? = nil,
+        appPasswordReader: (@Sendable () -> String?)? = nil
     ) {
         self.oauthTransport = oauthTransport
+        self.appPasswordReader = appPasswordReader
         self.overrideHome = claudeHome
         self.desktopHomes = ClaudeDesktopData.homes(home: homeDirectory, environment: environment)
         self.environment = environment
@@ -198,6 +207,7 @@ final class ClaudeQuotaService: @unchecked Sendable {
             guard !cancelled else { return nil }
             let value: ClaudeLocalCredentialAccess.Result
             if service == "Claude Safe Storage", account == "Claude Key" {
+                if let reader=self.appPasswordReader {return reader().map{Data($0.utf8)}}
                 let cached = self.appPasswordCache.read {
                     ClaudeLocalCredentialAccess.read(service:service,account:account,userInitiated:userInitiatedCredentialAccess)
                 }
@@ -216,6 +226,35 @@ final class ClaudeQuotaService: @unchecked Sendable {
                 if owner == nil, let verified = result.verifiedIdentity { fallbackOwner = verified }
                 return result
             }, desktop: {
+                let localPassword = { readLocal("Claude Safe Storage","Claude Key").flatMap {String(data:$0,encoding:.utf8)} }
+                let discover = { ClaudeDesktopOAuthReader.read(homes:self.desktopHomes,
+                    expected:connectionSelected ? fallbackOwner:nil, now:now, password:localPassword) }
+                var discovery=discover()
+                if discovery.decryptionFailed && usedCachedAppKey {
+                    self.appPasswordCache.invalidate();usedCachedAppKey=false;discovery=discover()
+                }
+                if discovery.sourceChanged {
+                    return ClaudeQuotaReadPolicy.failure(.sourceChanged,key:"quota.claudeLoginChanged",source:.desktopOAuth)
+                }
+                if !connectionSelected, let selected=discovery.candidates.first?.identity {
+                    needsVerifiedFallback=true;fallbackOwner=selected
+                }
+                var appOAuthFailure:ClaudeQuotaSnapshot?
+                for candidate in discovery.candidates {
+                    var result = self.oauthQuota(using:candidate.credential,previous:previous,expected:candidate.identity)
+                    result.source = .desktopOAuth
+                    result.selectedIdentityHint=candidate.identity
+                    if result.status == .available {
+                        guard ClaudeDesktopOAuthReader.isCurrent(candidate) else {
+                            return ClaudeQuotaReadPolicy.failure(.sourceChanged,key:"quota.claudeLoginChanged",source:.desktopOAuth)
+                        }
+                        return result
+                    }
+                    appOAuthFailure=result
+                    if result.readFailure == .rateLimited {return result}
+                    // Only a rejected token justifies trying another App grant.
+                    if result.readFailure != .authentication && result.readFailure != .permission {break}
+                }
                 let readApp = { ClaudeAppCookieReader.read(homes: self.desktopHomes,password: {readLocal("Claude Safe Storage","Claude Key").flatMap {String(data:$0,encoding:.utf8)}}) }
                 var appSession = readApp()
                 if appSession == nil && usedCachedAppKey {
@@ -223,6 +262,7 @@ final class ClaudeQuotaService: @unchecked Sendable {
                     appSession = readApp() // One fresh read handles a rotated App encryption key.
                 }
                 guard var session = appSession else {
+                    if let appOAuthFailure {return appOAuthFailure}
                     if !connectionSelected && previous?.source == .oauthAPI { fallbackOwner = nil }
                     return ClaudeQuotaReadPolicy.failure(authorizationRequired ? .localAuthorization : .noCredential,key:authorizationRequired ? "quota.claudeLocalAuthorizationRequired":"quota.claudePassiveUnavailable",source:.desktopWeb)
                 }
@@ -232,7 +272,8 @@ final class ClaudeQuotaService: @unchecked Sendable {
                     if mayUseUnpinnedAppCache, let selectedCache { return selectedCache }
                 }
                 if connectionSelected { session.expectedIdentity = fallbackOwner?.key }
-                let result = self.appQuota(session)
+                var result = self.appQuota(session)
+                if result.status != .available, result.verifiedIdentity == nil {result.selectedIdentityHint=appOAuthFailure?.selectedIdentityHint}
                 if let verified = result.verifiedIdentity, result.status != .available {
                     needsVerifiedFallback = true; fallbackOwner = verified
                 }
@@ -267,9 +308,14 @@ final class ClaudeQuotaService: @unchecked Sendable {
             return ClaudeQuotaReadPolicy.failure(authorizationRequired() ? .localAuthorization:.noCredential,
                                                 key:authorizationRequired() ? "quota.claudeLocalAuthorizationRequired":"quota.claudePassiveUnavailable",source:.oauthAPI)
         }
+        return oauthQuota(using:credential,previous:previous,expected:expected)
+    }
+
+    private func oauthQuota(using credential: CredentialInfo, previous: ClaudeQuotaSnapshot?, expected: ClaudeQuotaIdentity?) -> ClaudeQuotaSnapshot {
         let profileReply = requestOAuth(path: "profile", accessToken: credential.accessToken)
         if profileReply?.statusCode == 429 {return ClaudeQuotaReadPolicy.failure(.rateLimited,key:"quota.claudeRateLimited",source:.oauthAPI)}
         if profileReply?.statusCode == 401 {return ClaudeQuotaReadPolicy.failure(.authentication,key:"quota.claudePassiveUnavailable",source:.oauthAPI)}
+        if profileReply?.statusCode == 403 {return ClaudeQuotaReadPolicy.failure(.permission,key:"quota.claudePermissionDenied",source:.oauthAPI)}
         if let key=profileReply?.networkFailureKey {return ClaudeQuotaReadPolicy.failure(.network,key:key,source:.oauthAPI)}
         let profile = profileReply.flatMap { $0.statusCode == 200 ? Self.decodeOAuthProfile($0.body) : nil }
         if let expected {
@@ -328,10 +374,17 @@ final class ClaudeQuotaService: @unchecked Sendable {
               let oauth = root["claudeAiOauth"] as? [String: Any],
               let token = oauth["accessToken"] as? String,
               !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        if let raw=oauth["expiresAt"] {
+            guard let value=raw as? NSNumber,CFGetTypeID(value) != CFBooleanGetTypeID(),value.doubleValue.isFinite else{return nil}
+        }
         return CredentialInfo(
             accessToken: token,
             subscriptionType: oauth["subscriptionType"] as? String,
-            rateLimitTier: oauth["rateLimitTier"] as? String
+            rateLimitTier: oauth["rateLimitTier"] as? String,
+            expiresAt: (oauth["expiresAt"] as? NSNumber).flatMap { value in
+                CFGetTypeID(value) != CFBooleanGetTypeID() && value.doubleValue.isFinite
+                    ? Date(timeIntervalSince1970:value.doubleValue/1000):nil
+            }
         )
     }
 
@@ -483,7 +536,8 @@ final class ClaudeQuotaService: @unchecked Sendable {
                   let size = attributes[.size] as? NSNumber,
                   size.intValue <= 1_048_576,
                   let data = fileManager.contents(atPath: path),
-                  let credential = Self.decodeCredentialPayload(data) else { continue }
+                  let credential = Self.decodeCredentialPayload(data),
+                  credential.expiresAt.map({$0>Date()}) ?? true else { continue }
             return credential
         }
         #if os(macOS)
@@ -531,7 +585,8 @@ final class ClaudeQuotaService: @unchecked Sendable {
     ) -> CredentialInfo? {
         let bytes = reader.map { $0(service,account) } ?? ClaudeSilentKeychain.read(service:service,account:account)
         guard let data = bytes else { return nil }
-        return Self.decodeCredentialPayload(data)
+        guard let value=Self.decodeCredentialPayload(data),value.expiresAt.map({$0>Date()}) ?? true else{return nil}
+        return value
     }
     #endif
 
