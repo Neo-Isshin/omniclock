@@ -83,6 +83,15 @@ final class MacVariantSwitcherTests: XCTestCase {
         XCTAssertEqual(try enabled(newPlist), true)
         XCTAssertNotNil(childPID)
     }
+    func testHotfixDownloadCacheKeyUsesTheVerifiedDigest() throws {
+        let url=URL(string:"https://www.ailyre.com/omniclock/releases/download/omniclock-v1.0.0/TokenClock-normal-universal.tar.gz")!
+        let digest=String(repeating:"a",count:64)
+        let asset=MacVariantSwitcher.Asset(name:"TokenClock-normal-universal.tar.gz",browser_download_url:url,digest:"sha256:"+digest,size:100)
+        let selected=try XCTUnwrap(URLComponents(url:MacVariantSwitcher.downloadURL(for:asset),resolvingAgainstBaseURL:false))
+        XCTAssertEqual(selected.host,url.host);XCTAssertEqual(selected.path,url.path)
+        XCTAssertEqual(selected.queryItems,[URLQueryItem(name:"sha256",value:digest)])
+    }
+
     func testSupportedEditionsRespectMinimumOS() {
         XCTAssertFalse(MacVariantSwitcher.supported(.glass, majorVersion: 25))
         XCTAssertTrue(MacVariantSwitcher.supported(.glass, majorVersion: 26))

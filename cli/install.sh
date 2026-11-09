@@ -262,11 +262,11 @@ ensure_source() {
     tmp="$(mktemp -d)" || die "Cannot stage source download"
     DOWNLOAD_TMPDIRS+=("$tmp")
     step "Downloading source [$channel]"
-    curl -fL --retry 3 --connect-timeout 15 -o "$tmp/source.tar.gz" "$SOURCE_BASE/$channel.tar.gz" \
-      || die "Source download failed"
     curl -fL --retry 3 --connect-timeout 15 -o "$tmp/source.sha256" "$SOURCE_BASE/$channel.tar.gz.sha256" \
       || die "Source checksum download failed"
     expect="$(awk 'NF {print $1; exit}' "$tmp/source.sha256")"
+    curl -fL --retry 3 --connect-timeout 15 -o "$tmp/source.tar.gz" "$SOURCE_BASE/$channel.tar.gz?sha256=$expect" \
+      || die "Source download failed"
     got="$(sha256_file "$tmp/source.tar.gz")"
     [ "$got" = "$expect" ] || die "Source checksum mismatch"
     tar -xzf "$tmp/source.tar.gz" -C "$tmp" || die "Source archive extraction failed"
@@ -322,8 +322,8 @@ tarball_name() {
 }
 tarball_sha256() {
   case "$1" in
-    glass)  echo "c546c377a08f4e3df38ea275b8f070a1ac55ee3532b2c11e20a9b13c25dbc0ae" ;;
-    normal) echo "fb97a7fb494816f018fd0b54bd33a0bf5a522d6e0659de73281def65e16f1d48" ;;
+    glass)  echo "956f82d02987a31581b9c22fb9b7d7344a160c8ea9681e779d72aba3149b35ee" ;;
+    normal) echo "d3b42fbe0ef75fe38ef5c908fddc8ba7cb08c9b05cebef2eab6243604b73360b" ;;
   esac
 }
 
@@ -340,7 +340,7 @@ download_variant() {
   tag="$(release_tag_for_variant "$variant")"
   base="$(release_base_for_tag "$tag")"
   [ -n "$name" ] && [ -n "$expect" ] || return 1
-  url="$base/$name"
+  url="$base/$name?sha256=$expect"
   step "Downloading prebuilt binary [$variant] ($tag)"
   tmp="$(mktemp -d 2>/dev/null)" || return 1
   if ! curl -fL --retry 6 --retry-delay 2 --retry-all-errors --connect-timeout 15 -o "$tmp/$name" "$url" 2>/dev/null; then
