@@ -25,7 +25,13 @@
     if (http.length && rtc.some(x => !http.includes(x))) return 'risk';
     return http.length && rtc.length ? 'match' : 'review';
   }
+  function supportsExitEcho(row) {
+    if (row.exitIPEchoSupported === true) return true;
+    return row.exitIPEchoSupported !== false && row.id !== 'gemini' && row.host !== 'gemini.google.com';
+  }
+  function siteReachable(row) { return row.httpStatus >= 200 && row.httpStatus < 400; }
   function aiVerdict(baseline, row) {
+    if (!supportsExitEcho(row)) return siteReachable(row) ? 'reachable' : 'incomplete';
     if (row.ip && row.state === 'observed') return row.ip === baseline ? 'match' : 'review';
     return 'incomplete';
   }
@@ -52,7 +58,7 @@
     return {risk,review,unknown};
   }
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { exitsVerdict, locationVerdict, ipv6Verdict, aiVerdict, dohAssessment, dohVerdict, overall }; return;
+    module.exports = { exitsVerdict, locationVerdict, ipv6Verdict, aiVerdict, supportsExitEcho, dohAssessment, dohVerdict, overall }; return;
   }
   const zh = (new URL(location.href).searchParams.get('lang') || navigator.language).startsWith('zh');
   const T = (en, cn) => zh ? cn : en;
@@ -115,18 +121,29 @@
     const ai = $('aiAddresses'); ai.replaceChildren();
     const aiRows = rows.filter(x => x.category === 'ai');
     for (const row of aiRows) {
-      const verdict = aiVerdict(baseline, row);
-      const hint = row.ip ? (row.country || T('Exit confirmed','出口已确认'))
-        : row.httpStatus && row.httpStatus < 400 ? T('Connected; exit IP unavailable','可连接，出口尚未确认') : row.httpStatus ? T('Access restricted','访问受限') : T('Could not connect','未能连接');
-      line(ai, row.label, row.ip || row.host, hint);
+      const verdict = aiVerdict(baseline, row), echo=supportsExitEcho(row);
+      const hint = !echo ? T('Site does not echo an exit IP','站点不提供出口 IP 回显')
+        : row.ip ? (row.country || T('Exit confirmed','出口已确认'))
+        : siteReachable(row) ? T('Connected; no IP returned','可连接，未返回 IP') : row.httpStatus ? T('Access restricted','访问受限') : T('Could not connect','未能连接');
+      const value = !echo ? (siteReachable(row) ? T('Connected','可连接') : row.httpStatus ? T('Access restricted','访问受限') : T('Could not connect','未能连接')) : row.ip || row.host;
+      line(ai, row.label, value, hint);
       ai.lastElementChild.dataset.state = verdict;
     }
-    if (!aiRows.length) line(ai, T('App check', '应用内检测'), T('Open in TokenClock', '请在 TokenClock 内检测'), T('Browser cross-origin restrictions prevent reliable route checks.', '浏览器跨域限制下无法可靠核对这些域名的出口。'));
-    const observedAI = aiRows.filter(x => x.state === 'observed' && x.ip);
+    if (!aiRows.length) line(ai, T('App check', '应用内检测'), T('Open in OmniClock', '请在 OmniClock 内检测'), T('Browser cross-origin restrictions prevent reliable route checks.', '浏览器跨域限制下无法可靠核对这些域名的出口。'));
+    const echoRows=aiRows.filter(supportsExitEcho), connectionRows=aiRows.filter(row=>!supportsExitEcho(row));
+    const observedAI = echoRows.filter(x => x.state === 'observed' && x.ip);
+    const allExits=echoRows.length>0 && observedAI.length===echoRows.length;
+    const connected=connectionRows.every(siteReachable);
     const aiState = observedAI.some(x => aiVerdict(baseline, x) === 'review') ? 'review'
-      : aiRows.length && observedAI.length === aiRows.length ? 'match' : observedAI.length ? 'partial' : 'incomplete';
-    badge('aiBadge', aiState, aiState === 'review' ? T('Different exits','存在不同出口') : aiState === 'match' ? T('Consistent','出口一致') : aiState === 'partial' ? T('Partly confirmed','部分确认') : T('Cannot determine','暂无法判断'));
-    summary('ai', aiState === 'review' ? T('Some AI sites use a different exit; review routing.', '部分 AI 站点使用了不同出口，请检查分流。') : aiState === 'match' ? T('The checked AI sites use the expected exit.', '已核对的 AI 站点出口符合预期。') : observedAI.length ? T(observedAI.length + ' of ' + aiRows.length + ' site exits checked; others did not return an IP.', '已确认 '+observedAI.length+'/'+aiRows.length+' 个站点出口，其余未返回出口 IP。') : T('The AI sites did not provide enough exit information.', 'AI 站点暂未提供足够的出口信息。'));
+      : allExits && connected ? 'match' : observedAI.length ? 'partial' : !echoRows.length && connectionRows.some(siteReachable) ? 'observed' : 'incomplete';
+    const reason=aiState==='match' && connectionRows.length ? 'exitChecksComplete' : !connected ? 'siteReachabilityProblem' : '';
+    badge('aiBadge', aiState, aiState === 'review' ? T('Different exits','存在不同出口') : aiState === 'match' ? T('Checked exits match','可核对出口一致') : aiState === 'observed' ? T('Connected','可连接') : aiState === 'partial' ? T('Partly confirmed','部分确认') : T('Cannot determine','暂无法判断'),reason);
+    let message = aiState === 'review' ? T('Some AI sites use a different exit; review routing.', '部分 AI 站点使用了不同出口，请检查分流。')
+      : allExits ? T('All '+echoRows.length+' comparable site exits match.','可核对的 '+echoRows.length+' 个站点出口一致。')
+      : observedAI.length ? T(observedAI.length+' of '+echoRows.length+' comparable exits checked.','已核对 '+observedAI.length+'/'+echoRows.length+' 个可回显的出口。')
+      : T('No comparable exit information was returned.','暂未取得可核对的出口信息。');
+    if(connectionRows.length) message += connected ? T(' Gemini is reachable; its IP is not exposed.',' Gemini 可连接，站点未提供出口 IP。') : T(' Some sites were restricted or unreachable.',' 部分站点访问受限或未能连接。');
+    summary('ai',message);
     const doh=$('dohAddresses');doh.replaceChildren();
     const dohs=rows.filter(x=>['doh','dohEcho'].includes(x.category));
     for(const row of dohs) {
@@ -134,7 +151,7 @@
         : row.ip === baseline ? T('Matches web exit','与网页出口一致') : T('Exit needs review','出口需要核对');
       line(doh,row.category === 'dohEcho' ? T('Cloudflare exit','Cloudflare 出口') : row.label,row.ip || row.host || '—',hint);
     }
-    if(!dohs.length) line(doh,'DoH',T('Use TokenClock','请使用 TokenClock 内检测'),T('This browser cannot expose its DoH transport or settings.','浏览器页面无法确认其 DoH 传输和配置。'));
+    if(!dohs.length) line(doh,'DoH',T('Use OmniClock','请使用 OmniClock 内检测'),T('This browser cannot expose its DoH transport or settings.','浏览器页面无法确认其 DoH 传输和配置。'));
     const verified=rows.filter(x=>x.category==='doh'&&x.state==='verified').length;
     const dohResult = dohAssessment(baseline, rows);
     const dohMessages = {
@@ -149,6 +166,7 @@
     badge('dohBadge',dohResult.state,({match:T('No leak found','未发现泄漏'),risk:T('Possible leak','可能泄漏'),review:T('Needs attention','需要关注'),partial:T('Partly confirmed','部分确认'),incomplete:T('Cannot determine','暂无法判断')})[dohResult.state],dohResult.reason);
     summary('doh',dohMessages[dohResult.reason]);
     window.TokenClockLeak?.renderRTC(data);
+    window.TokenClockLeak?.renderDNS?.(data);
     summarize();
   }
 
@@ -281,11 +299,19 @@
     const states = Object.fromEntries(Object.keys(names).map(id => [id, $(id+'Badge')?.dataset.state || 'idle']));
     const risks = Object.keys(names).filter(id => states[id] === 'risk');
     const local = $('rtcBadge')?.dataset.reason === 'localAddressExposed';
-    const uncertain = Object.keys(names).filter(id => ['review','incomplete','partial','notObserved','invalid'].includes(states[id]) && !(id === 'rtc' && local));
+    const dnsReason=$('dnsBadge')?.dataset.reason || '';
+    const geoMatches=['sameDNSCity','sameDNSRegion','sameDNSCountry'];
+    const dnsGeo=geoMatches.includes(dnsReason);
+    const dnsDifferent=['differentDNSLocation','DNSBaselineLocationConflict'].includes(dnsReason);
+    const dnsPartial=states.dns==='partial';
+    const uncertain = Object.keys(names).filter(id => (id === 'dns' && dnsReason === 'dnsLocationUnavailable' || ['review','incomplete','partial','notObserved','invalid'].includes(states[id])) && !(id === 'rtc' && local) && !(id==='dns'&&(dnsDifferent||dnsPartial)));
     const checked = Object.keys(names).filter(id => states[id] === 'match');
     const out = risks.map(id => names[id] + T(': possible leak', '：可能泄漏'));
     if (local) out.push(T('WebRTC: local address exposed','WebRTC：本地地址已暴露'));
-    if (!out.length) out.push(checked.length ? T('No leak found in the checks that could be verified','已核对的项目未发现泄漏') : T('A leak verdict is not yet available','暂无法判断是否存在泄漏'));
+    if (dnsDifferent) out.push(dnsReason === 'DNSBaselineLocationConflict' ? T('Exit location sources disagree','出口地区信息不一致') : T('DNS locations differ from the exit; review routing','DNS 地区与出口不同，请核对分流'));
+    if (!out.length) out.push(checked.length ? T('No leak found in the checks that could be verified','已核对的项目未发现泄漏') : dnsGeo ? T('DNS locations match the exit; no location anomaly found','DNS 地区与出口一致，未见地区异常') : T('A leak verdict is not yet available','暂无法判断是否存在泄漏'));
+    if (dnsGeo && checked.length) out.push(T('DNS location matches','DNS 地区一致'));
+    if (dnsPartial) out.push(T('DNS: partial results checked','DNS：已核对部分结果'));
     if (uncertain.length) out.push(uncertain.map(id => names[id]).join(T(', ','、')) + T(': cannot determine yet','：暂无法判断'));
     if ($('consistencyBadge')?.dataset.state === 'review') out.push(T('Web exits or locations differ','网页出口或地区不一致'));
     if ($('aiBadge')?.dataset.state === 'review') out.push(T('AI sites use different exits','AI 站点存在不同出口'));

@@ -84,6 +84,8 @@ final class AntigravityQuotaRingsTests: XCTestCase {
             XCTAssertTrue(CGRect(x: 0, y: 0, width: size.diameter, height: size.diameter).contains(layout.frame(at: 0)))
             let single = ClockQuotaLayout(diameter: size.diameter, count: 1, scale: size.scale)
             XCTAssertGreaterThan(single.ringSize, layout.ringSize)
+            XCTAssertEqual(single.ringSize,38*size.scale,accuracy:0.001)
+            XCTAssertEqual(single.frame(at:0).midX,size.diameter-57*size.scale,accuracy:0.001)
             XCTAssertEqual(single.frame(at: 0).midY, size.diameter / 2, accuracy: 0.00001)
         }
     }

@@ -104,8 +104,37 @@
     if (!resolvers.every(x => allowed.includes(ip(x)))) return 'risk';
     return complete ? 'match' : 'incomplete';
   }
+  function dnsAssessment(resolvers, expected, complete = true, baseline, locations = [], rows = []) {
+    const sources = [...new Set(resolvers.map(ip).filter(Boolean))];
+    if (!sources.length) return {state:'incomplete',reason:'noDNSResult'};
+    if (expected.trim()) {
+      const state = dnsVerdict(sources, expected, complete);
+      return {state:state === 'incomplete' ? 'partial' : state,
+        reason:state === 'match' ? 'expectedDNS' : state === 'risk' ? 'unexpectedDNS' : state === 'invalid' ? 'invalidDNS' : 'partialExpectedDNS'};
+    }
+    if (ip(baseline) && sources.every(address => address === ip(baseline))) {
+      return complete ? {state:'match',reason:'sameDNSExit'} : {state:'partial',reason:'partialDNSCheck'};
+    }
+    const norm = value => typeof value === 'string' ? value.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase().replace(/\s+/g,' ') : '';
+    const country = value => /^[A-Za-z]{2}$/.test(value || '') ? value.toUpperCase() : '';
+    const baselineRows = rows.filter(row => ip(row.ip) === ip(baseline) && row.state === 'observed' && ['geo','exit'].includes(row.category) && country(row.country));
+    if (new Set(baselineRows.map(row => country(row.country))).size > 1) return {state:'review',reason:'DNSBaselineLocationConflict'};
+    baselineRows.sort((a,b) => Number(!!b.city)-Number(!!a.city) || Number(!!b.region)-Number(!!a.region));
+    const base = baselineRows[0];
+    const found = sources.map(address => locations.find(row => ip(row.ip) === address && row.state === 'observed' && country(row.country))).filter(Boolean);
+    if (!base || !found.length) return {state:'observed',reason:'dnsLocationUnavailable'};
+    if (found.some(row => country(row.country) !== country(base.country))) return {state:'review',reason:'differentDNSLocation'};
+    const full = found.length === sources.length;
+    const cityComparable = full && norm(base.city) && found.every(row => norm(row.city));
+    const regionComparable = full && norm(base.region) && found.every(row => norm(row.region));
+    if (cityComparable && found.some(row => norm(row.city) !== norm(base.city))) return {state:'review',reason:'differentDNSLocation'};
+    if (!cityComparable && regionComparable && found.some(row => norm(row.region) !== norm(base.region))) return {state:'review',reason:'differentDNSLocation'};
+    if (!full) return {state:'partial',reason:'partialDNSLocation'};
+    if (!complete) return {state:'partial',reason:'partialDNSLocationCheck'};
+    return {state:'observed',reason:cityComparable ? 'sameDNSCity' : regionComparable ? 'sameDNSRegion' : 'sameDNSCountry'};
+  }
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { ip, isPublic, isLocal, candidate, candidateAddresses, rtcAssessment, rtcVerdict, dnsVerdict };
+    module.exports = { ip, isPublic, isLocal, candidate, candidateAddresses, rtcAssessment, rtcVerdict, dnsVerdict, dnsAssessment };
     return;
   }
 
@@ -127,7 +156,7 @@
     rtcTitle: T('WebRTC leak check', 'WebRTC 泄漏检测'),
     rtcHint: T('ICE / STUN candidates; no audio or video.', 'ICE / STUN 候选地址，不传输音视频'),
     expectedTitle: T('Expected DNS resolvers · optional', '预期 DNS 解析器 · 可选'),
-    expectedHint: T('IP addresses separated by commas. Used locally for comparison.', '填写允许使用的解析器 IP，以逗号分隔；仅在当前页面内比较。'),
+    expectedHint: T('Optional: copy allowed query-source IPs from the results, separated by commas. Location comparison is automatic.', '可选：从结果复制允许的 DNS 查询来源 IP，以逗号分隔；地区对照会自动完成。'),
     note: T('Different exits or IP databases can disagree without proving a leak. No IPv6 response does not prove it is disabled. Embedded results do not represent other browsers.', '不同出口或 IP 库可能存在差异，不能仅据此确认泄漏。IPv6 无响应也不能证明已禁用。内嵌结果不代表其他浏览器。'),
     privacy: T('Runs on click · no media permissions · observations expire within 135 seconds', '点击才检测 · 无需音视频权限 · 服务端观测记录至多保留 135 秒'),
     idle: T('Ready when you are', '等待开始检测'),
@@ -136,11 +165,11 @@
   for (const [key, value] of Object.entries(labels)) if ($(key)) $(key).textContent = value;
   document.documentElement.lang = zh ? 'zh-CN' : 'en';
   document.title = labels.title + ' · OmniClock';
-  $('expected').placeholder = T('For example: 1.1.1.1, 1.0.0.1', '例如：1.1.1.1, 1.0.0.1');
+  $('expected').placeholder = T('Query-source IPs from the results', '填写结果中的 DNS 查询来源 IP');
   $('browser').hidden = !embedded;
 
   const words = {
-    idle: T('Not checked', '尚未检测'), running: T('Checking', '检测中'),
+    idle: T('Not checked', '尚未检测'), running: T('Checking', '检测中'), partial:T('Partly confirmed','部分确认'),
     observed: T('Observed', '已观测'), match: T('Matches', '与预期一致'),
     review: T('Review', '需要核对'), risk: T('Unexpected address', '发现预期外地址'),
     incomplete: T('Inconclusive', '未能完成'), invalid: T('Invalid expected IP', '预期 IP 格式有误')
@@ -170,19 +199,38 @@
       line.append(code, tag); box.append(line);
     }
   }
-  function renderDNS() {
+  function renderDNS(data) {
     if (!last) return;
-    const state = dnsVerdict(last.resolvers, $('expected').value, last.dnsComplete);
-    const reason = state === 'review' ? 'noExpectedDNS' : state === 'match' ? 'expectedDNS' : state === 'risk' ? 'unexpectedDNS' : state === 'invalid' ? 'invalidDNS' : last.resolvers.length ? 'partialDNSCheck' : 'noDNSResult';
+    if (data?.rows?.some(row => ['geo','exit'].includes(row.category))) last.diagnosticRows=data.rows;
+    const assessment = dnsAssessment(last.resolvers, $('expected').value, last.dnsComplete,
+      last.ip, last.locations || [], last.diagnosticRows || []);
+    const {state,reason} = assessment;
     badge('dnsBadge', state, reason);
-    const texts = {
-      review: T('DNS was detected, but no expected DNS was specified.', '已检测到 DNS，但尚未指定预期 DNS，暂无法判断是否泄漏。'),
-      match: T('The observed DNS sources match your expected DNS.', 'DNS 查询来源符合预期，未发现泄漏。'),
-      risk: T('Unexpected DNS sources were found; a leak is possible.', '发现预期之外的 DNS，可能存在泄漏。'),
-      invalid: T('Correct the expected DNS addresses to finish this comparison.', '预期 DNS 格式有误，请修正后再判断。'),
-      incomplete: T('No DNS result was received; a leak cannot be determined.', '未取得 DNS 结果，暂无法判断是否泄漏。')
+    const status = {
+      sameDNSCity:T('Location matches','地区一致'),sameDNSRegion:T('Region matches','地区一致'),sameDNSCountry:T('Country matches','国家/地区一致'),
+      differentDNSLocation:T('Different locations','地区存在差异'),DNSBaselineLocationConflict:T('Location needs review','出口位置需核对'),
+      partialExpectedDNS:T('Returned DNS matches','已返回结果符合预期'),partialDNSLocation:T('Partly located','部分位置已核对'),
+      partialDNSLocationCheck:T('Returned locations match','已返回位置一致'),dnsLocationUnavailable:T('DNS detected','已检测到 DNS')
     };
-    summary('dns', reason === 'partialDNSCheck' ? T('Some DNS results are missing; a leak cannot be determined.', 'DNS 结果不完整，暂无法判断是否泄漏。') : texts[state]);
+    if (status[reason]) $('dnsBadge').textContent=status[reason];
+    const texts = {
+      expectedDNS:T('The observed DNS sources match your expected DNS; no leak was found.','DNS 查询来源符合预期，未发现泄漏。'),
+      unexpectedDNS:T('Unexpected DNS sources were found; a leak is possible.','发现预期之外的 DNS，可能存在泄漏。'),
+      invalidDNS:T('Correct the expected DNS addresses to finish the comparison.','预期 DNS 格式有误，请修正后再判断。'),
+      partialExpectedDNS:T('All returned DNS sources match; some queries did not finish.','已返回的 DNS 均符合预期，另有查询未完成。'),
+      sameDNSExit:T('DNS sources match the web exit; no different exit was found.','DNS 查询来源与网页出口一致，未发现不同出口。'),
+      sameDNSCity:T('All DNS locations match the web exit city; no location anomaly was found.','DNS 均与当前出口位于同一城市，未发现地区异常。'),
+      sameDNSRegion:T('All DNS locations match the web exit region; no location anomaly was found.','DNS 均与当前出口位于同一地区，未发现地区异常。'),
+      sameDNSCountry:T('All DNS countries match the web exit; city details are limited.','DNS 所在国家/地区与当前出口一致，部分城市信息未提供。'),
+      differentDNSLocation:T('Some DNS locations differ from the web exit; review the expected routing.','部分 DNS 位置与当前出口不同，请核对是否符合你的分流设置。'),
+      DNSBaselineLocationConflict:T('Location sources disagree about the web exit; DNS comparison needs review.','不同来源对出口位置的判断不一致，DNS 地区对照需要核对。'),
+      partialDNSLocation:T('Located DNS sources match the exit country; some locations are unavailable.','已定位的 DNS 与出口国家/地区一致，部分 DNS 位置尚未取得。'),
+      partialDNSLocationCheck:T('Returned DNS locations match the exit; some queries did not finish.','已返回的 DNS 位置与出口一致，另有查询未完成。'),
+      dnsLocationUnavailable:T('DNS sources were detected; location comparison is not available yet.','已检测到 DNS 查询来源，暂未取得可对照的位置。'),
+      partialDNSCheck:T('Returned DNS matches the exit; some queries did not finish.','已返回的 DNS 与出口一致，另有查询未完成。'),
+      noDNSResult:T('No DNS result was received; a leak cannot be determined.','未取得 DNS 结果，暂无法判断是否泄漏。')
+    };
+    summary('dns',texts[reason]);
     const locations = last.locations || [];
     addresses('dnsAddresses', last.resolvers.map(address => {
       const row = locations.find(x => ip(x.ip) === address);
@@ -303,7 +351,7 @@
       if (active !== run) return;
       const resolvers = [...new Set(dnsResult.resolvers.map(ip).filter(Boolean))];
       let locations = (diagnostics.rows || []).filter(x => x.category === 'dnsGeo');
-      last = { resolvers, rtc, ip: session.ip, locations, dnsComplete: dnsResult.probesObserved >= 3 };
+      last = { resolvers, rtc, ip: session.ip, locations, diagnosticRows:diagnostics.rows || [], dnsComplete: dnsResult.probesObserved >= 3 };
       renderDNS();
       const tags = { public: T('Public', '公网'), local: T('Local / special', '内网 / 特殊地址'), mdns: T('Local IP hidden', '内网 IP 已隐藏'), relay: T('Relay', '中继') };
       addresses('rtcAddresses', rtc.found.map(x => ({ address: x.address, tag: tags[x.kind] })), T('No address candidates available.', '没有获取到可用候选地址。'));
@@ -339,7 +387,7 @@
   $('expected').oninput = renderDNS;
   $('browser').onclick = () => { location.href = 'tokenclock-network-browser://open'; };
   window.addEventListener('pagehide', stop);
-  window.TokenClockLeak = { stop, snapshot:()=>last, normalizeIP: ip, isPublicIP: isPublic, renderRTC, receiveDiagnostics: data => window.TokenClockDiagnostics?.receive(data) };
+  window.TokenClockLeak = { stop, snapshot:()=>last, normalizeIP: ip, isPublicIP: isPublic, renderRTC, renderDNS, receiveDiagnostics: data => window.TokenClockDiagnostics?.receive(data) };
   for (const key of ['exitBadge', 'dnsBadge', 'rtcBadge']) badge(key, 'idle');
   if (location.hash === '#run') { history.replaceState(null, '', location.pathname + location.search); start(); }
 })();

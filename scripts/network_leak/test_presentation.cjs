@@ -28,7 +28,8 @@ for (const language of ['en','zh-CN']) {
     {category:'dohEcho',label:'Cloudflare',state:'observed',ip:'1.1.1.1'}
   ];
   window.TokenClockDiagnostics.render({rows},'1.1.1.1',[]);
-  assert.equal(elements.get('aiBadge').dataset.state,'partial');
+  assert.equal(elements.get('aiBadge').dataset.state,'match');
+  assert.equal(elements.get('aiBadge').dataset.reason,'exitChecksComplete');
   assert.equal(elements.get('dohBadge').dataset.state,'match');
   assert.equal(elements.get('ipv6Badge').dataset.state,'notObserved');
   for(const id of ['ai','doh','consistency','ipv6']) assert(elements.get(id+'Summary').textContent.length>0,id);
@@ -47,8 +48,8 @@ async function testAllResolverRowsRemainAvailable() {
   let lookedUp=[];
   const window={addEventListener(){},TokenClockDiagnostics:{
     reset(){},summarize(){},render(){},stopped(){},
-    async start(){return {rows:[{category:'dnsGeo',ip:addresses[0],country:'US',state:'observed'}]};},
-    async resolveDNSLocations(values){lookedUp=values;return values.map(ip=>({ip,country:'US',city:'Example city',state:'observed'}));}
+    async start(){return {rows:[{category:'dnsGeo',ip:addresses[0],country:'US',city:'Los Angeles',state:'observed'},{category:'geo',ip:'1.1.1.1',country:'US',city:'Los Angeles',state:'observed'}]};},
+    async resolveDNSLocations(values){lookedUp=values;return values.map(ip=>({ip,country:'US',city:'Los Angeles',state:'observed'}));}
   }};
   const context={window,document:{getElementById:id=>elements.get(id),createElement:tag=>new Element(tag),documentElement:{}},
     location:{href:'https://www.ailyre.com/tokenclock/network-check/?lang=en',hash:''},navigator:{language:'en'},URL,Intl,AbortController,setTimeout,clearTimeout,
@@ -63,7 +64,9 @@ async function testAllResolverRowsRemainAvailable() {
   assert.equal(elements.get('dnsAddresses').children.length,18,'No six-result truncation');
   assert.equal(lookedUp.length,17,'Resolve missing locations after final DNS collection');
   assert.equal(window.TokenClockLeak.snapshot().locations.length,18);
-  assert(elements.get('dnsAddresses').children[17].textContent.includes('Example city'));
+  assert.equal(elements.get('dnsBadge').dataset.reason,'sameDNSCity');
+  assert.equal(elements.get('dnsBadge').textContent,'Location matches');
+  assert(elements.get('dnsAddresses').children[17].textContent.includes('Los Angeles'));
   console.log('All DNS rows retained; later sources receive location lookups');
 }
 testAllResolverRowsRemainAvailable().catch(error=>{console.error(error);process.exitCode=1;});

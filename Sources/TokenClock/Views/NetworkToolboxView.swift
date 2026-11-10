@@ -24,9 +24,15 @@ import SwiftUI
         }
         var shortName: String { ["dns":"DNS", "rtc":"WebRTC", "ipv6":"IPv6", "doh":"DoH"][id] ?? localizedTitle }
         var isLeakCheck: Bool { ["dns", "rtc", "ipv6", "doh"].contains(id) }
+        var dnsLocationMatches: Bool { id == "dns" && ["sameDNSCity","sameDNSRegion","sameDNSCountry"].contains(reason) }
+        var dnsLocationDiffers: Bool { id == "dns" && ["differentDNSLocation","DNSBaselineLocationConflict"].contains(reason) }
         var localAddressExposed: Bool { id == "rtc" && reason == "localAddressExposed" }
         var localizedStatus: String {
             if localAddressExposed { return toolboxText("本地地址暴露", "Local IP exposed") }
+            if dnsLocationMatches {return reason == "sameDNSCountry" ? toolboxText("国家/地区一致","Country matches") : toolboxText("地区一致","Location matches")}
+            if dnsLocationDiffers {return toolboxText("地区需核对","Review locations")}
+            if id == "dns",reason == "dnsLocationUnavailable" {return toolboxText("已检测到 DNS","DNS detected")}
+            if id == "ai",reason == "exitChecksComplete" {return toolboxText("可核对出口一致","Checked exits match")}
             switch state {
             case "risk": return isLeakCheck ? toolboxText("可能泄漏", "Possible leak") : toolboxText("需要关注", "Needs attention")
             case "review":
@@ -51,6 +57,14 @@ import SwiftUI
             case "exit":
                 return state == "observed" ? toolboxText("这是网站目前看到的公网出口。", "This is the public IP currently seen by websites.") : toolboxText("暂未取得网页出口。", "The web exit could not be obtained.")
             case "dns":
+                if dnsLocationMatches {return reason == "sameDNSCountry" ? toolboxText("DNS 所在国家/地区与当前出口一致，部分城市信息未提供。","DNS countries match the exit; city details are limited.") : toolboxText("DNS 与当前出口位于同一地区，未发现地区异常。","DNS locations match the web exit; no location anomaly was found.")}
+                if reason == "DNSBaselineLocationConflict" {return toolboxText("出口地区信息存在分歧，DNS 地区对照需要核对。","Exit location sources disagree; review the DNS comparison.")}
+                if dnsLocationDiffers {return toolboxText("DNS 位置与出口地区存在差异，请核对分流设置。","DNS locations differ from the web exit; review routing.")}
+                if reason == "partialExpectedDNS" {return toolboxText("已返回的 DNS 均符合预期，另有查询未完成。","Returned DNS matches expectations; some queries did not finish.")}
+                if reason == "partialDNSLocation" {return toolboxText("已定位的 DNS 与出口国家/地区一致，部分 DNS 位置尚未取得。","Located DNS sources match; some locations are unavailable.")}
+                if reason == "partialDNSLocationCheck" {return toolboxText("已返回的 DNS 位置与出口一致，另有查询未完成。","Returned locations match; some queries did not finish.")}
+                if reason == "dnsLocationUnavailable" {return toolboxText("已检测到 DNS 查询来源，暂未取得可对照的位置。","DNS was detected; location comparison is unavailable.")}
+                if reason == "sameDNSExit" {return toolboxText("DNS 查询来源与网页出口一致，未发现不同出口。","DNS sources match the web exit.")}
                 if reason == "partialDNSCheck" { return toolboxText("DNS 结果不完整，暂无法判断是否泄漏。", "Some DNS results are missing; a leak cannot be determined.") }
                 switch state {
                 case "risk": return toolboxText("发现预期之外的 DNS，可能存在泄漏。", "Unexpected DNS sources were found; a leak is possible.")
@@ -82,6 +96,8 @@ import SwiftUI
                 if state == "review" { return toolboxText("不同检测站看到的出口或地区不一致，请检查分流。", "Some web exits or locations differ; check your routing.") }
                 return toolboxText("部分出口或地区信息尚无法确认。", "Some exit or location information could not be checked.")
             case "ai":
+                if reason == "exitChecksComplete" {return toolboxText("可核对的站点出口一致；Gemini 连通性在下方单独显示。","Comparable exits match; Gemini reachability is shown separately below.")}
+                if reason == "siteReachabilityProblem" {return toolboxText("部分站点访问受限或未能连接，请查看对应条目。","Some sites are restricted or unreachable; see their individual results.")}
                 if state == "match" { return toolboxText("已核对的 AI 站点出口符合预期。", "The checked AI sites use the expected exit.") }
                 if state == "review" { return toolboxText("部分 AI 站点使用了不同出口，请检查分流。", "Some AI sites use a different exit; review routing.") }
                 if state == "partial" { return toolboxText("部分站点出口已确认，其余未返回出口 IP。", "Some site exits are confirmed; others did not return an IP.") }
@@ -109,18 +125,20 @@ import SwiftUI
             return toolboxText("点击开始检测，检查当前连接是否存在泄漏。", "Run checks to look for leaks in this connection.")
         }
         let issues = leakCards.compactMap { card -> String? in
+            if card.dnsLocationDiffers {return card.reason == "DNSBaselineLocationConflict" ? toolboxText("出口地区信息不一致，请核对。","Exit location sources disagree.") : toolboxText("DNS 地区与出口不同，请核对分流。","DNS locations differ from the exit; review routing.")}
             if card.localAddressExposed { return toolboxText("WebRTC：本地地址已暴露", "WebRTC: local address exposed") }
             return card.state == "risk" ? card.shortName + toolboxText("：可能泄漏", ": possible leak") : nil
         }
         if !issues.isEmpty { return issues.joined(separator: toolboxText("；", "; ")) + toolboxText("。", ".") }
         return leakCards.contains(where: { $0.state == "match" })
             ? toolboxText("已核对的泄漏项目未发现异常。", "No leak found in the checks that could be verified.")
-            : toolboxText("暂无法判断是否存在泄漏。", "A leak verdict is not yet available.")
+            : leakCards.contains(where: { $0.dnsLocationMatches }) ? toolboxText("DNS 地区与出口一致，未见地区异常。","DNS locations match the exit; no location anomaly found.") : toolboxText("暂无法判断是否存在泄漏。", "A leak verdict is not yet available.")
     }
     var pendingSummary: String {
         guard !running else { return "" }
-        let pending = leakCards.filter { !["risk", "match", "idle", ""].contains($0.state) && !$0.localAddressExposed }
+        let pending = leakCards.filter { !["risk", "match", "idle", ""].contains($0.state) && !$0.localAddressExposed && !$0.dnsLocationMatches && !$0.dnsLocationDiffers && !($0.id == "dns" && $0.state == "partial") }
         var parts: [String] = []
+        if leakCards.contains(where: { $0.id == "dns" && $0.state == "partial" }) {parts.append(toolboxText("DNS：已核对部分结果","DNS: partial results checked"))}
         if !pending.isEmpty { parts.append(toolboxText("暂无法判断是否泄漏：", "Leak verdict unavailable: ") + pending.map(\.shortName).joined(separator: toolboxText("、", ", "))) }
         if let ai = cards.first(where: { $0.id == "ai" }), ["partial", "incomplete"].contains(ai.state) {
             parts.append(toolboxText("AI 分流：部分站点未返回出口信息", "AI routing: some sites did not return an exit IP"))
