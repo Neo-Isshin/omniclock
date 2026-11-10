@@ -416,8 +416,8 @@ final class LinuxClockRenderer: @unchecked Sendable {
         width: Double, height: Double, scale: Double, count: Int
     ) -> [(x: Double, y: Double, size: Double)] {
         guard count == 1 || count == 2 else { return [] }
-        let size = (count == 1 ? 42.0 : 36.0) * scale
-        let trailing = (count == 1 ? 36.0 : 28.0) * scale
+        let size = (count == 1 ? 38.0 : 36.0) * scale
+        let trailing = (count == 1 ? 38.0 : 28.0) * scale
         let spacing = 8 * scale
         let totalHeight = size * Double(count) + spacing * Double(max(0, count - 1))
         let top = (height - totalHeight) / 2

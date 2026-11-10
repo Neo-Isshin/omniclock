@@ -477,6 +477,7 @@
       case "observed": return toolboxText("已观测", "Observed")
       case "responded": return toolboxText("已响应", "Responded")
       case "unavailable", "unknown": return toolboxText("未完成", "Incomplete")
+      case "reachable": return toolboxText("可连接","Connected")
       case "configured": return toolboxText("已配置", "Configured")
       default: return value
       }
@@ -518,7 +519,7 @@
         else if networkDate == nil {summary=toolboxText("点击开始检测后显示结果。","Run a check to see results.")}
         else if group.0 == "exit" {summary=exits.isEmpty ? toolboxText("未取得公网出口，暂无法判断。","No public exit was obtained."):exits.count>1 ? toolboxText("检测到不同出口，请核对分流。","Different exits detected; review routing."):toolboxText("各来源看到的公网出口一致。","Public exit observations match.")}
         else if group.0 == "ipv6" {summary=rows.contains{$0.ip != nil} ? toolboxText("可通过 IPv6 联网；是否泄漏需核对预期。","IPv6 is reachable; a leak depends on your expected route."):toolboxText("本次未检测到 IPv6 出口。","No IPv6 exit was detected in this check.")}
-        else if group.0 == "ai" {let known=rows.compactMap(\.ip);summary=known.contains{!exits.contains($0)} ? toolboxText("AI 域名出现不同出口，请核对分流。","AI domains use different exits; review routing."):toolboxText("已取得 \(known.count)/\(rows.count) 个域名的出口；其余暂无法判断。","Exit IPs obtained for \(known.count)/\(rows.count) domains; others are inconclusive.")}
+        else if group.0 == "ai" {let comparable=rows.filter{$0.exitIPEchoSupported != false && $0.id != "gemini"};let known=comparable.compactMap(\.ip);summary=known.contains{!exits.contains($0)} ? toolboxText("AI 域名出现不同出口，请核对分流。","AI domains use different exits; review routing."):toolboxText("已核对 \(known.count)/\(comparable.count) 个可回显出口；Gemini 单独显示连通性。","Checked \(known.count)/\(comparable.count) comparable exits; Gemini shows reachability separately.")}
         else {let locations=Dictionary(grouping:rows.filter{$0.country != nil},by:{$0.ip ?? ""});summary=locations.values.contains{Set($0.compactMap(\.country)).count>1} ? toolboxText("同一 IP 的地区结果存在差异。","Location sources disagree for the same IP."):locations.values.contains{$0.count>=2} ? toolboxText("已取得的地区对照一致。","Available location comparisons agree."):toolboxText("地区信息不足，暂无法完成对照。","Not enough location information for comparison.")}
         let verdict=label(summary,card)
         gtk_widget_set_size_request(verdict,-1,36)
@@ -531,7 +532,7 @@
         let lines=gtk_box_new(GTK_ORIENTATION_VERTICAL,0)!
         gtk_container_add(tc_gtk_container(scroll),lines)
         if browserOnly {button(toolboxText("打开完整检测 ↗","Open full check ↗"),"network:browser",lines)}
-        else {for row in rows {let values=[row.label,row.ip,row.country,row.region,row.city,row.httpStatus.map{"HTTP \($0)"}].compactMap{$0}.filter{!$0.isEmpty};let line=label(values.joined(separator:" · "),lines,muted:true);tc_gtk_add_class(line,"tc-network-line");gtk_widget_set_size_request(line,-1,20)}}
+        else {for row in rows {let reachability=row.exitIPEchoSupported == false ? stateTitle(row.state)+" · "+toolboxText("站点不提供出口 IP","Site does not expose an exit IP"):nil;let values=[row.label,row.ip,row.country,row.region,row.city,reachability,row.httpStatus.map{"HTTP \($0)"}].compactMap{$0}.filter{!$0.isEmpty};let line=label(values.joined(separator:" · "),lines,muted:true);tc_gtk_add_class(line,"tc-network-line");gtk_widget_set_size_request(line,-1,20)}}
       }
       let mainlandCard = stack(box, card: true)
       label(
