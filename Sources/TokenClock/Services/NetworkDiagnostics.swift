@@ -24,6 +24,7 @@ struct NetworkDiagnosticRow: Codable, Sendable, Equatable {
     var httpStatus: Int?
     var note: String? = nil
     var proxy: Bool? = nil
+    var exitIPEchoSupported: Bool? = nil
 }
 
 struct NetworkDiagnosticsResult: Codable, Sendable {
@@ -236,7 +237,7 @@ enum NetworkDiagnostics {
         .init(id: "ipv6", category: "ipv6", label: "ipify IPv6", url: "https://api6.ipify.org?format=json"),
         .init(id: "chatgpt", category: "ai", label: "ChatGPT", url: "https://chatgpt.com/cdn-cgi/trace"),
         .init(id: "claude", category: "ai", label: "Claude", url: "https://claude.ai/cdn-cgi/trace"),
-        .init(id: "gemini", category: "ai", label: "Gemini", url: "https://gemini.google.com/robots.txt", head: true),
+        .init(id: "gemini", category: "ai", label: "Gemini", url: "https://gemini.google.com/", head: true),
         .init(id: "openai-api", category: "ai", label: "OpenAI API", url: "https://api.openai.com/cdn-cgi/trace"),
         .init(id: "anthropic-api", category: "ai", label: "Anthropic API", url: "https://api.anthropic.com/cdn-cgi/trace"),
         .init(id: "xai-api", category: "ai", label: "xAI API", url: "https://api.x.ai/cdn-cgi/trace")
@@ -246,6 +247,12 @@ enum NetworkDiagnostics {
         var row = NetworkDiagnosticRow(id: target.id, category: target.category, label: target.label,
                                        host: URL(string: target.url)!.host!, state: reply.status == nil ? "unavailable" : "responded",
                                        httpStatus: reply.status, proxy:reply.proxy)
+        if target.id == "gemini" {
+            row.exitIPEchoSupported=false
+            if let status=reply.status,(200..<400).contains(status) {row.state="reachable"}
+            row.note="reachability_only"
+            return row
+        }
         guard reply.status == 200, !reply.limited else { return row }
         if target.id == "ipify" || target.id == "ipv6" {
             row.ip = NetworkDiagnosticParser.address(NetworkDiagnosticParser.json(reply.data)?["ip"] as? String)

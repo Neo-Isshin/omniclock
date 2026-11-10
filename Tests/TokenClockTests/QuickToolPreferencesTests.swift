@@ -8,7 +8,7 @@ import XCTest
         defer {store.removePersistentDomain(forName:name)}
         let prefs=QuickToolPreferences(defaults:store)
         prefs.toggle(.local)
-        prefs.move(.notebook,to:.model)
+        prefs.move(.notebook,to:.network)
         XCTAssertEqual(prefs.order.first,.notebook)
         prefs.move(.quota,by:-1)
         let saved=prefs.order
@@ -24,8 +24,8 @@ import XCTest
         let prefs=QuickToolPreferences(defaults:store)
         XCTAssertEqual(prefs.order,QuickToolPreferences.defaults)
         prefs.toggle(.history);prefs.toggle(.notebook)
-        XCTAssertEqual(prefs.order,[.model,.network,.local,.quota])
-        XCTAssertEqual(QuickToolPreferences(defaults:store).order,[.model,.network,.local,.quota])
+        XCTAssertEqual(prefs.order,[.network,.model,.local,.quota])
+        XCTAssertEqual(QuickToolPreferences(defaults:store).order,[.network,.model,.local,.quota])
         prefs.order=[]
         XCTAssertTrue(QuickToolPreferences(defaults:store).order.isEmpty)
     }

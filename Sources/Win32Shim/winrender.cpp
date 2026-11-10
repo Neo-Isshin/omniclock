@@ -1495,7 +1495,7 @@ void win_render_clock(int w, int h, int hh, int mm, int ss, const win_theme *t, 
         textEmoji(ov->rate, cxd + 32.0 * S, cyd + r * 0.28, (float)(11.0 * S), t->text_secondary);
         textC(ov->tokens,   cxd, cyd + r * 0.40, (float)(20.0 * S), t->text_primary, true);
         if (ov->dial_quota_count == 1) {
-            drawQuotaRing(0, cxd + r * 0.57, cyd, 42.0 * S,
+            drawQuotaRing(0, cxd + r * 0.57, cyd, 38.0 * S,
                           ov->dial_quota_outer1, ov->dial_quota_inner1,
                           ov->dial_quota_has_inner1 != 0, ov->dial_quota_third1, ov->dial_quota_has_third1 != 0, ov->dial_quota_color1,
                           ov->dial_quota_tooltip1);
