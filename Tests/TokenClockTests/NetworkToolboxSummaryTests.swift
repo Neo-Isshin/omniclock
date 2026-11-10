@@ -3,6 +3,16 @@ import XCTest
 @testable import TokenClock
 
 @MainActor final class NetworkToolboxSummaryTests: XCTestCase {
+    func testMatchingDNSLocationsAreReportedWithoutAnUnknownDNSVerdict() {
+        let model=NetworkToolboxPresentation()
+        model.update(["running":false,"cards":[["id":"dns","state":"observed","reason":"sameDNSCity","text":"Los Angeles"],["id":"ai","state":"match","reason":"exitChecksComplete"]]])
+        let card=model.cards[0]
+        XCTAssertTrue(card.dnsLocationMatches)
+        XCTAssertFalse(card.localizedStatus.contains("determine"))
+        XCTAssertFalse(model.pendingSummary.contains("DNS"))
+        XCTAssertFalse(model.issueSummary.contains("暂无法判断"))
+        XCTAssertTrue(model.cards[1].resultSummary.contains("Gemini"))
+    }
     func testUnknownAndDNSWithoutExpectationAreNotClaimedSafeOrLeaking() {
         let model = NetworkToolboxPresentation()
         model.cards = [.init(id:"dns",title:"DNS",status:"Review",text:"",state:"review"),.init(id:"rtc",title:"WebRTC",status:"",text:"",state:"incomplete")]

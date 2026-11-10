@@ -161,12 +161,12 @@ enum QuickTool: String, CaseIterable, Identifiable, Codable {
 }
 @MainActor final class QuickToolPreferences: ObservableObject {
     static let shared = QuickToolPreferences()
-    static let defaults: [QuickTool] = [.model, .network, .local, .quota, .history, .notebook]
+    static let defaults: [QuickTool] = [.network, .model, .local, .quota, .history, .notebook]
     private let store: UserDefaults
     @Published var order: [QuickTool] {
         didSet {
             store.set(order.map(\.rawValue), forKey: "toolbox.quickOrder")
-            store.set(1, forKey: "toolbox.quickOrderVersion")
+            store.set(2, forKey: "toolbox.quickOrderVersion")
         }
     }
     init(defaults: UserDefaults = .standard) {
@@ -175,10 +175,13 @@ enum QuickTool: String, CaseIterable, Identifiable, Codable {
         let stored = defaults.stringArray(forKey: "toolbox.quickOrder")?.compactMap(QuickTool.init(rawValue:))
         let previousDefaults: [QuickTool] = [.model, .network, .local, .quota]
         let previousFive: [QuickTool] = previousDefaults + [.history]
-        let migrate = defaults.integer(forKey: "toolbox.quickOrderVersion") < 1 && (stored == previousDefaults || stored == previousFive)
+        let previousSix: [QuickTool] = [.model, .network, .local, .quota, .history, .notebook]
+        let version = defaults.integer(forKey: "toolbox.quickOrderVersion")
+        let migrate = version < 1 && (stored == previousDefaults || stored == previousFive)
+            || version < 2 && stored == previousSix
         order = (migrate ? Self.defaults : stored ?? Self.defaults).filter { seen.insert($0).inserted }
         if migrate { defaults.set(order.map(\.rawValue), forKey: "toolbox.quickOrder") }
-        defaults.set(1, forKey: "toolbox.quickOrderVersion")
+        defaults.set(2, forKey: "toolbox.quickOrderVersion")
     }
     func toggle(_ item: QuickTool) { if order.contains(item) { order.removeAll { $0 == item } } else { order.append(item) } }
     func move(_ item: QuickTool, by step: Int) {

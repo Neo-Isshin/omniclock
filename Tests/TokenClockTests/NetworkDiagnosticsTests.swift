@@ -4,6 +4,18 @@ import XCTest
 @testable import TokenClock
 
 final class NetworkDiagnosticsTests: XCTestCase {
+    func testGeminiChecksReachabilityWithoutPretendingToEchoTheClientIP() throws {
+        let target=try XCTUnwrap(NetworkDiagnostics.targets.first{$0.id == "gemini"})
+        XCTAssertEqual(target.url,"https://gemini.google.com/")
+        XCTAssertTrue(target.head)
+        let value=NetworkDiagnostics.parse(.init(data:Data("ip=8.8.8.8\nloc=US".utf8),status:200,limited:false),target:target)
+        XCTAssertEqual(value.state,"reachable")
+        XCTAssertEqual(value.exitIPEchoSupported,false)
+        XCTAssertNil(value.ip)
+        let denied=NetworkDiagnostics.parse(.init(data:Data(),status:403,limited:false),target:target)
+        XCTAssertNotEqual(denied.state,"reachable")
+        XCTAssertNil(denied.ip)
+    }
     func testTraceUsesClientCountryAndRejectsMalformedAddresses() {
         let trace = Data("ip=8.8.8.8\nloc=US\ncolo=HKG\n".utf8)
         XCTAssertEqual(NetworkDiagnosticParser.trace(trace)?.ip, "8.8.8.8")
