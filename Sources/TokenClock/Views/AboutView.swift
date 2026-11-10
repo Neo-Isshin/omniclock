@@ -28,7 +28,7 @@ struct AboutView: View {
             VStack(spacing: 4) {
                 Text("OmniClock")
                     .font(.system(size: 22, weight: .semibold))
-                Text(version + " · " + BillingText.choose("Hotfix 1", "热更新 1", "熱更新 1"))
+                Text(version + " · " + BillingText.choose("Hotfix 2", "热更新 2", "熱更新 2"))
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .help(AppConfig.buildRevision)

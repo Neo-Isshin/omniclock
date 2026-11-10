@@ -17,6 +17,7 @@ struct AilyreNewsMark: View {
 }
 
 struct AilyreNewsView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var news: AilyreNewsService
     var textColor: Color = .primary
     var focusedID: String?
@@ -29,11 +30,14 @@ struct AilyreNewsView: View {
                 Link(destination: URL(string: "https://www.ailyre.com/news/")!) {
                     HStack(spacing: 6) {
                         Text(toolboxText("完整内容在 ailyre.com 中", "Full coverage on ailyre.com"))
-                            .lineLimit(1).minimumScaleFactor(0.85)
-                        Image(systemName: "arrow.up.right").font(.system(size: 8, weight: .semibold))
-                    }.font(.system(size: 10, weight: .medium)).frame(minHeight: 18).padding(.horizontal, 4)
+                            .lineLimit(1)
+                        Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .semibold))
+                    }.font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(colorScheme == .dark ? .white : .black)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .frame(minHeight: 18).padding(.horizontal, 4)
                 }
-                .foregroundStyle(textColor.opacity(0.85)).buttonStyle(.glass).controlSize(.small)
+                .buttonStyle(.glass).controlSize(.small)
                 .instantHint(toolboxText("在默认浏览器打开 Ailyre 完整速递", "Open all Ailyre news in your default browser"))
 
             }.padding(.horizontal, 14).padding(.vertical, 8)

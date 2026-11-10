@@ -10,7 +10,7 @@ import Foundation
 enum AppConfig {
     /// Kept in sync with the release tag by scripts/release.sh validation.
     static let version = "1.0.0"
-    static let buildRevision = "claude-quota-1"
+    static let buildRevision = "network-ring-2"
     static let macOSVariant = "glass"
 
     // MARK: - 外部 API endpoint
