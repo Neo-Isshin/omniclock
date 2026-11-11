@@ -6,7 +6,7 @@
 
 **AI usage, subscription quotas, news, reminders, and practical tools—on your desktop.**
 
-[![Downloads](https://img.shields.io/badge/Downloads-Ailyre-10B981?style=for-the-badge)](https://www.ailyre.com/omniclock/releases/)
+[![Downloads](https://img.shields.io/badge/Downloads-GitHub-10B981?style=for-the-badge)](https://github.com/Neo-Isshin/omniclock/releases/latest)
 [![macOS 12+](https://img.shields.io/badge/macOS-12%2B-000000?style=for-the-badge&logo=apple&logoColor=white)](#platforms)
 [![Liquid Glass](https://img.shields.io/badge/macOS%2026%2B-Liquid%20Glass-00B0F0?style=for-the-badge&logo=apple&logoColor=white)](#platforms)
 [![Windows](https://img.shields.io/badge/Windows-11-0078D4?style=for-the-badge)](#windows)
@@ -66,7 +66,7 @@ Shared accounting, pricing, history and release versions are aligned. Windows us
 ### macOS and Linux
 
 ```bash
-curl -fsSL https://www.ailyre.com/omniclock/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.sh | bash
 ```
 
 The installer selects the supported edition, verifies package checksums, and installs both commands:
@@ -101,7 +101,7 @@ macOS may request permission to access protected or external-disk folders. Curre
 ### Windows
 
 ```powershell
-& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1)))
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.ps1)))
 ```
 
 This installs the verified Windows v1.0.0 package for the current user, with SHA-256 verification. The installation path and executable retain the TokenClock name for compatibility. The `omniclock`/`tokenclock` shell commands described above apply to macOS and Linux.
@@ -111,13 +111,13 @@ This installs the verified Windows v1.0.0 package for the current user, with SHA
 
 ```powershell
 # Install without launching; optionally create a Start Menu shortcut.
-& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1))) -NoStart -StartMenuShortcut
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.ps1))) -NoStart -StartMenuShortcut
 
 # Inspect installation state.
-& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1))) -Action Check
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.ps1))) -Action Check
 
 # Uninstall while retaining Windows user settings.
-& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1))) -Action Uninstall
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.ps1))) -Action Uninstall
 ```
 
 </details>
@@ -188,6 +188,8 @@ cd omniclock
 Run `omniclock doctor` first if an installation is not behaving as expected. For missing usage, check that the selected source path contains real usage records. For quota failures, distinguish a missing local record, permission request, expired sign-in, and provider-side rejection.
 
 [Report an issue](https://github.com/Neo-Isshin/omniclock/issues) · [Gitea mirror](https://gitea.nxc8335.cloud/nxc8335/omniclock) · [Ailyre](https://www.ailyre.com/)
+
+Friend link · [LINUX DO](https://linux.do/)
 
 ## License and acknowledgements
 

@@ -1,10 +1,10 @@
 # TokenClock Windows per-user installer.
 #
 # One-liner:
-#   & ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1)))
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.ps1)))
 #
 # Passing options through a one-liner:
-#   & ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1))) -NoStart -StartMenuShortcut
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.ps1))) -NoStart -StartMenuShortcut
 
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -131,12 +131,21 @@ function New-Shortcut([string] $LinkPath, [string] $ExePath, [string] $WorkingDi
     $shortcut.Save()
 }
 
+function Get-WindowsPackageName($Release, [bool] $IncludeUnsigned = $false) {
+    $names = @($Release.assets | ForEach-Object { $_.name })
+    $candidates = @('OmniClock-windows-x86_64.zip', 'TokenClock-windows-x86_64.zip')
+    foreach ($name in $candidates) {
+        if ($name -in $names -and "$name.sha256" -in $names) { return $name }
+    }
+    if ($IncludeUnsigned) {
+        foreach ($name in $candidates) {
+            if ($name -in $names) { return $name }
+        }
+    }
+}
+
 function Test-ReleaseHasWindowsAssets($Release) {
-    if ($null -eq $Release) { return $false }
-    $names = @($Release.assets | ForEach-Object { [string] $_.name } | Where-Object {
-        -not [string]::IsNullOrWhiteSpace($_)
-    })
-    return ($assetName -in $names) -and ($checksumAssetName -in $names)
+    return [bool] (Get-WindowsPackageName $Release)
 }
 
 function Get-AssetDownloadUrl($Asset) {
@@ -153,16 +162,28 @@ function Get-AssetDownloadUrl($Asset) {
 
 function Get-Release {
     $headers = @{ 'User-Agent' = 'TokenClock-Windows-Installer'; 'Accept' = 'application/json' }
+    $endpoint = "https://api.github.com/repos/$repo/releases"
     if ($Version -eq 'latest') {
-        # Keep the Windows channel independent of macOS/Linux package publication.
-        $release = Invoke-RestMethod 'https://www.ailyre.com/omniclock/releases/latest-windows.json' -Headers $headers
+        $release = Invoke-RestMethod "$endpoint/latest" -Headers $headers
         if (-not $release.draft -and -not $release.prerelease -and (Test-ReleaseHasWindowsAssets $release)) {
             return $release
         }
-        throw "No stable OmniClock release contains both $assetName and $checksumAssetName."
+        # A macOS-only release can be newer than the current Windows build.
+        $page = 1
+        do {
+            $releases = Invoke-RestMethod "${endpoint}?per_page=100&page=$page" -Headers $headers
+            foreach ($candidate in $releases) {
+                if (-not $candidate.draft -and -not $candidate.prerelease -and (Test-ReleaseHasWindowsAssets $candidate)) {
+                    return $candidate
+                }
+            }
+            $page++
+        } while ($releases.Count -eq 100)
+        throw 'No stable release contains a Windows package with its checksum.'
     }
-    $encoded = [Uri]::EscapeDataString($Version)
-    return Invoke-RestMethod "https://www.ailyre.com/omniclock/releases/$encoded.json" -Headers $headers
+    $tag = if ($Version -eq 'v1.6.4') { 'omniclock-v1.0.0' } else { $Version }
+    $encoded = [Uri]::EscapeDataString($tag)
+    return Invoke-RestMethod "$endpoint/tags/$encoded" -Headers $headers
 }
 
 function Read-ExpectedHash([string] $Path) {
@@ -248,6 +269,9 @@ try {
             throw 'The release server returned metadata without a tag name. Retry shortly or specify -Version v1.5.12.'
         }
         $releaseTag = [string] $release.tag_name
+        $assetName = Get-WindowsPackageName $release $AllowUnsigned.IsPresent
+        if (-not $assetName) { throw "Release '$releaseTag' has no suitable Windows package." }
+        $checksumAssetName = "$assetName.sha256"
         $zipAsset = $release.assets | Where-Object name -eq $assetName | Select-Object -First 1
         $shaAsset = $release.assets | Where-Object name -eq $checksumAssetName | Select-Object -First 1
         # A workflow and a local release may replace an asset under the same public filename.
