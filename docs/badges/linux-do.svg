@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="103" height="28" viewBox="0 0 103 28" role="img" aria-labelledby="title">
+  <title id="title">LINUX DO</title>
+  <rect x=".5" y=".5" width="102" height="27" rx="13.5" fill="#25282c" stroke="#50545a"/>
+  <clipPath id="disc"><circle cx="16" cy="14" r="7"/></clipPath>
+  <g clip-path="url(#disc)">
+    <path fill="#34373c" d="M9 7h14v5H9z"/>
+    <path fill="#fff" d="M9 12h14v4H9z"/>
+    <path fill="#f6bc49" d="M9 16h14v5H9z"/>
+  </g>
+  <text x="31" y="18" fill="#fff" font-family="Verdana,Arial,sans-serif" font-size="11" font-weight="bold" letter-spacing=".8">LINUX DO</text>
+</svg>
