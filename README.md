@@ -6,6 +6,7 @@
 
 **AI usage, subscription quotas, news, reminders, and practical tools—on your desktop.**
 
+[![LINUX DO](docs/badges/linux-do.svg)](https://linux.do/)
 [![Downloads](https://img.shields.io/badge/Downloads-GitHub-10B981?style=for-the-badge)](https://github.com/Neo-Isshin/omniclock/releases/latest)
 [![macOS 12+](https://img.shields.io/badge/macOS-12%2B-000000?style=for-the-badge&logo=apple&logoColor=white)](#platforms)
 [![Liquid Glass](https://img.shields.io/badge/macOS%2026%2B-Liquid%20Glass-00B0F0?style=for-the-badge&logo=apple&logoColor=white)](#platforms)
