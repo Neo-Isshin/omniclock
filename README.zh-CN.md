@@ -6,12 +6,12 @@
 
 **把 AI 用量、订阅额度、资讯、提醒和实用工具，放到桌面上。**
 
-[![LINUX DO](docs/badges/linux-do.svg)](https://linux.do/)
 [![下载](https://img.shields.io/badge/Downloads-GitHub-10B981?style=for-the-badge)](https://github.com/Neo-Isshin/omniclock/releases/latest)
 [![macOS 12+](https://img.shields.io/badge/macOS-12%2B-000000?style=for-the-badge&logo=apple&logoColor=white)](#支持平台)
 [![Liquid Glass](https://img.shields.io/badge/macOS%2026%2B-Liquid%20Glass-00B0F0?style=for-the-badge&logo=apple&logoColor=white)](#支持平台)
 [![Windows](https://img.shields.io/badge/Windows-11-0078D4?style=for-the-badge)](#windows)
-[![Linux](https://img.shields.io/badge/Linux-GTK3%20AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black)](#支持平台)
+<br>
+[![Linux](https://img.shields.io/badge/Linux-GTK3%20AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black)](#支持平台) [![LINUX DO](docs/badges/linux-do.svg)](https://linux.do/)
 
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](https://www.swift.org/)
 [![MIT 许可](https://img.shields.io/badge/License-MIT-3B82F6.svg)](LICENSE)
