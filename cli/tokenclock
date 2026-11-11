@@ -6,7 +6,7 @@ if [ ! -x "$compat_command" ]; then
   compat_command="$(command -v omniclock 2>/dev/null || true)"
 fi
 if [ -z "$compat_command" ] || [ ! -x "$compat_command" ]; then
-  printf '%s\n' 'OmniClock CLI is missing. Reinstall with: curl -fsSL https://www.ailyre.com/omniclock/install.sh | bash' >&2
+  printf '%s\n' 'OmniClock CLI is missing. Reinstall with: curl -fsSL https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.sh | bash' >&2
   exit 127
 fi
 exec "$compat_command" "$@"

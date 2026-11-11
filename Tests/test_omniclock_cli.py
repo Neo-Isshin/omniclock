@@ -96,7 +96,7 @@ exit 37
             result = self.invoke(name, "update", "--check")
             self.assertIn("no upgrade performed", result.stdout)
         calls = self.trace.read_text()
-        self.assertEqual(calls.count("https://www.ailyre.com/omniclock/install.sh"), 2)
+        self.assertEqual(calls.count("https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.sh"), 2)
         self.assertNotIn("SHOULD_NOT_EXECUTE", calls)
         self.assertNotIn("UNEXPECTED_PROCESS_CALL", calls)
         self.assertEqual(hashlib.sha256(sentinel.read_bytes()).hexdigest(), digest)
@@ -121,6 +121,7 @@ printf 'DEPLOYED=0\\nCLI_UPDATED=1\\n' > "$TOKENCLOCK_STATUS_FILE"
         block = text.split("# BEGIN OMNICLOCK CLI INSTALL\n", 1)[1].split("# END OMNICLOCK CLI INSTALL", 1)[0]
         builds = self.root / "build source"
         if source:
+            self.env["CLI_TEST_SOURCE_DIR"] = str(builds / "main")
             directory = builds / "main/cli"
             directory.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / "cli/omniclock", directory / "omniclock")
@@ -129,8 +130,8 @@ printf 'DEPLOYED=0\\nCLI_UPDATED=1\\n' > "$TOKENCLOCK_STATUS_FILE"
 set -eu
 BIN_DIR="$1"
 BUILD_DIR="$2"
-INSTALL_URL="https://www.ailyre.com/omniclock/install.sh"
-BRANCHES=(main)
+INSTALL_URL="https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.sh"
+CLI_SOURCE_DIR="${CLI_TEST_SOURCE_DIR:-}"
 WRAPPER_TMP=""; COMPAT_TMP=""
 trap '[ -z "$WRAPPER_TMP" ] || rm -f "$WRAPPER_TMP"; [ -z "$COMPAT_TMP" ] || rm -f "$COMPAT_TMP"' EXIT
 say() { :; }
@@ -170,10 +171,11 @@ sha256_file() { shasum -a 256 "$1" | cut -d' ' -f1; }
         old_source = builds / "main/cli/tokenclock"
         old_source.parent.mkdir(parents=True)
         old_source.write_text("#!/usr/bin/env bash\nexit 99\n")
+        old_source.with_name("omniclock").write_text("#!/usr/bin/env bash\nexit 99\n")
         self.fake_download((ROOT / "cli/omniclock").read_text())
         result = subprocess.run(["/bin/bash", str(helper), str(self.bin), str(builds)], env=self.env,
                                 capture_output=True, text=True, check=True)
-        self.assertIn("https://www.ailyre.com/omniclock/omniclock", self.trace.read_text())
+        self.assertIn("https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/omniclock", self.trace.read_text())
         self.assertEqual((self.bin / "omniclock").read_bytes(), (ROOT / "cli/omniclock").read_bytes())
         self.assertEqual(self.invoke("tokenclock", "help").stdout, self.invoke("omniclock", "help").stdout)
 

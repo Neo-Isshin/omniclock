@@ -6,7 +6,7 @@
 
 **把 AI 用量、订阅额度、资讯、提醒和实用工具，放到桌面上。**
 
-[![下载](https://img.shields.io/badge/Downloads-Ailyre-10B981?style=for-the-badge)](https://www.ailyre.com/omniclock/releases/)
+[![下载](https://img.shields.io/badge/Downloads-GitHub-10B981?style=for-the-badge)](https://github.com/Neo-Isshin/omniclock/releases/latest)
 [![macOS 12+](https://img.shields.io/badge/macOS-12%2B-000000?style=for-the-badge&logo=apple&logoColor=white)](#支持平台)
 [![Liquid Glass](https://img.shields.io/badge/macOS%2026%2B-Liquid%20Glass-00B0F0?style=for-the-badge&logo=apple&logoColor=white)](#支持平台)
 [![Windows](https://img.shields.io/badge/Windows-11-0078D4?style=for-the-badge)](#windows)
@@ -66,7 +66,7 @@ Glass 保留透明材质与专属光学效果，Normal 使用自己的主题和�
 ### macOS 与 Linux
 
 ```bash
-curl -fsSL https://www.ailyre.com/omniclock/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.sh | bash
 ```
 
 安装器会选择支持的版本、校验安装包，并同时安装两个命令：
@@ -101,7 +101,7 @@ macOS 可能要求授权访问受保护目录或外接磁盘。当前临时签�
 ### Windows
 
 ```powershell
-& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1)))
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.ps1)))
 ```
 
 为当前用户安装已验证的 Windows v1.0.0 包，并校验 SHA-256。为兼容既有安装，目录与可执行文件仍保留 TokenClock 名称。上面的 `omniclock`／`tokenclock` Shell 管理命令适用于 macOS 和 Linux。
@@ -111,13 +111,13 @@ macOS 可能要求授权访问受保护目录或外接磁盘。当前临时签�
 
 ```powershell
 # 安装后不立即启动，可选创建开始菜单快捷方式。
-& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1))) -NoStart -StartMenuShortcut
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.ps1))) -NoStart -StartMenuShortcut
 
 # 查看安装状态。
-& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1))) -Action Check
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.ps1))) -Action Check
 
 # 卸载并保留 Windows 用户设置。
-& ([scriptblock]::Create((irm https://www.ailyre.com/omniclock/install.ps1))) -Action Uninstall
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.ps1))) -Action Uninstall
 ```
 
 </details>
@@ -188,6 +188,8 @@ cd omniclock
 安装异常时先运行 `omniclock doctor`。用量缺失时检查所选目录中是否有真实用量记录；额度异常时区分本机记录缺失、读取权限、登录过期和服务端拒绝。
 
 [反馈问题](https://github.com/Neo-Isshin/omniclock/issues) · [Gitea 镜像](https://gitea.nxc8335.cloud/nxc8335/omniclock) · [Ailyre](https://www.ailyre.com/)
+
+友情链接 · [LINUX DO](https://linux.do/)
 
 ## 许可与致谢
 
