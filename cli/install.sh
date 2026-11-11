@@ -15,7 +15,7 @@
 #   ./cli/install.sh --build-from-source  # skip the prebuilt download, force a local swift build
 #
 # One-liner:
-#   curl -fsSL https://www.ailyre.com/omniclock/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.sh | bash
 #
 # Environment variables to override defaults:
 #   TOKENCLOCK_REPO     git repository URL            (default: repo origin)
@@ -26,14 +26,14 @@
 set -uo pipefail
 export LC_ALL=C      # kept for portability: bash 3.2 in a UTF-8 locale can fold a multibyte character directly after $var into the variable name; the C locale parses by byte and avoids that. ASCII-only strings are unaffected either way.
 
-DEFAULT_REPO="https://gitea.nxc8335.cloud/nxc8335/omniclock.git"
+DEFAULT_REPO="https://github.com/Neo-Isshin/omniclock.git"
 REPO_URL="${TOKENCLOCK_REPO:-$DEFAULT_REPO}"
 HOME_DIR="${TOKENCLOCK_HOME:-$HOME/.tokenclock}"
 BIN_DIR="${TOKENCLOCK_BIN_DIR:-$HOME/.local/bin}"
 BUILD_DIR="${TOKENCLOCK_BUILD:-$HOME_DIR/src}"
 # Update source (cmd_update fetches this URL; the tokenclock wrapper defaults to the same value)
-INSTALL_URL="${TOKENCLOCK_INSTALL_URL:-https://www.ailyre.com/omniclock/install.sh}"
-SOURCE_BASE="${TOKENCLOCK_SOURCE_BASE:-https://www.ailyre.com/omniclock/sources}"
+INSTALL_URL="${TOKENCLOCK_INSTALL_URL:-https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.sh}"
+SOURCE_BASE="${TOKENCLOCK_SOURCE_BASE:-}"
 
 CONFIG="release"
 VARIANT=""          # "" = auto-select by platform / macOS version
@@ -41,6 +41,7 @@ NO_START=0
 FORCE=0             # --force: bypass the "no change" short-circuit and redeploy the binary
 DEPLOYED_ANYTHING=0 # whether anything was actually deployed this run (reported to tokenclock update to decide whether to restart)
 BUILT_BINS=()       # collected build-artifact paths, as path:variant
+CLI_SOURCE_DIR=""
 BUILD_FROM_SOURCE=0 # --build-from-source: skip the prebuilt download and force a local swift build
 LINUX_APPIMAGE=0    # Linux x86_64 默认走预编译 AppImage（置 1 后由 download_appimage 处理）
 
@@ -254,22 +255,34 @@ say "  Variants: $VARIANT_LABELS · build: $CONFIG"
 # The prebuilt-download path (default) never clones, avoiding a hard dependency on git / the Xcode license.
 ensure_source() {
   local variant="$1" branch="$2" subdir="$BUILD_DIR/$branch"
-  # Public source exports contain only committed files. Gitea itself remains sign-in-only.
+  # Use the public platform branch, or a checksum-verified archive from an explicit mirror.
   # An explicit TOKENCLOCK_REPO keeps the existing Git-based source workflow.
   if [ "$REPO_URL" = "$DEFAULT_REPO" ]; then
     local channel="$variant" tmp expect got previous
     [ "$PLATFORM" != linux ] || channel=linux
     tmp="$(mktemp -d)" || die "Cannot stage source download"
     DOWNLOAD_TMPDIRS+=("$tmp")
-    step "Downloading source [$channel]"
-    curl -fL --retry 3 --connect-timeout 15 -o "$tmp/source.tar.gz" "$SOURCE_BASE/$channel.tar.gz" \
-      || die "Source download failed"
-    curl -fL --retry 3 --connect-timeout 15 -o "$tmp/source.sha256" "$SOURCE_BASE/$channel.tar.gz.sha256" \
-      || die "Source checksum download failed"
-    expect="$(awk 'NF {print $1; exit}' "$tmp/source.sha256")"
-    got="$(sha256_file "$tmp/source.tar.gz")"
-    [ "$got" = "$expect" ] || die "Source checksum mismatch"
-    tar -xzf "$tmp/source.tar.gz" -C "$tmp" || die "Source archive extraction failed"
+    if [ -n "$SOURCE_BASE" ]; then
+      step "Downloading source [$channel]"
+      curl -fL --retry 3 --connect-timeout 15 -o "$tmp/source.tar.gz" "$SOURCE_BASE/$channel.tar.gz" \
+        || die "Source download failed"
+      curl -fL --retry 3 --connect-timeout 15 -o "$tmp/source.sha256" "$SOURCE_BASE/$channel.tar.gz.sha256" \
+        || die "Source checksum download failed"
+      expect="$(awk 'NF {print $1; exit}' "$tmp/source.sha256")"
+      got="$(sha256_file "$tmp/source.tar.gz")"
+      [ "$got" = "$expect" ] || die "Source checksum mismatch"
+      tar -xzf "$tmp/source.tar.gz" -C "$tmp" || die "Source archive extraction failed"
+    else
+      local source_branch
+      case "$channel" in
+        glass) source_branch=main ;;
+        normal) source_branch=normal ;;
+        linux) source_branch=codex/linux-theme-parity ;;
+      esac
+      step "Fetching source [$channel] ($REPO_URL · $source_branch)"
+      git clone --depth 1 --branch "$source_branch" "$REPO_URL" "$tmp/TokenClock" \
+        || die "Source download failed ($source_branch)"
+    fi
     [ -f "$tmp/TokenClock/Package.swift" ] || die "Source archive has no Package.swift"
     mkdir -p "$(dirname "$subdir")"
     if [ -e "$subdir" ]; then
@@ -294,7 +307,7 @@ ensure_source() {
 }
 
 # ── 4. Obtain the binary (prefer the prebuilt download; fall back to building from source on failure / --build-from-source) ──
-# Prebuilt assets come from the public VPS (universal: arm64+x86_64); no Xcode, no compilation.
+# Prebuilt assets come from GitHub Releases (universal: arm64+x86_64); no Xcode, no compilation.
 # Each independently maintained channel may publish a patch without relabelling the unchanged
 # binaries from the other platforms. TOKENCLOCK_RELEASE_TAG remains a global testing override.
 release_tag_for_variant() {
@@ -310,14 +323,14 @@ release_tag_for_variant() {
 }
 release_base_for_tag() {
   local tag="$1"
-  echo "${TOKENCLOCK_RELEASE_BASE:-https://www.ailyre.com/omniclock/releases/download/$tag}"
+  echo "${TOKENCLOCK_RELEASE_BASE:-https://github.com/Neo-Isshin/omniclock/releases/download/$tag}"
 }
 
-# variant → tarball filename / expected SHA256 (bash 3.2 has no associative arrays, so use case)
-tarball_name() {
+# The GitHub release uses OmniClock names. Earlier tags and legacy mirrors use TokenClock.
+release_asset_prefix() {
   case "$1" in
-    glass)  echo "TokenClock-glass-universal.tar.gz" ;;
-    normal) echo "TokenClock-normal-universal.tar.gz" ;;
+    https://github.com/Neo-Isshin/omniclock/releases/download/omniclock-*) echo OmniClock ;;
+    *) echo TokenClock ;;
   esac
 }
 tarball_sha256() {
@@ -335,10 +348,10 @@ DOWNLOAD_TMPDIRS=()
 trap '[ "${#DOWNLOAD_TMPDIRS[@]}" -gt 0 ] && rm -rf "${DOWNLOAD_TMPDIRS[@]}" 2>/dev/null; [ -n "${WRAPPER_TMP:-}" ] && rm -f "$WRAPPER_TMP" 2>/dev/null; [ -n "${COMPAT_TMP:-}" ] && rm -f "$COMPAT_TMP" 2>/dev/null; true' EXIT
 download_variant() {
   local variant="$1" name expect tag base url tmp got
-  name="$(tarball_name "$variant")"
   expect="$(tarball_sha256 "$variant")"
   tag="$(release_tag_for_variant "$variant")"
   base="$(release_base_for_tag "$tag")"
+  name="$(release_asset_prefix "$base")-$variant-universal.tar.gz"
   [ -n "$name" ] && [ -n "$expect" ] || return 1
   url="$base/$name"
   step "Downloading prebuilt binary [$variant] ($tag)"
@@ -367,10 +380,11 @@ download_variant() {
 # 校验通过则把 AppImage 路径写入全局 APPIMAGE_PATH 并返回 0；失败返回 1（调用方回退源码编译）。
 APPIMAGE_PATH=""
 download_appimage() {
-  local name="TokenClock-x86_64.AppImage" sha_name tag base url tmp got expect
-  sha_name="$name.sha256"
+  local name sha_name tag base url tmp got expect
   tag="$(release_tag_for_variant linux)"
   base="$(release_base_for_tag "$tag")"
+  name="$(release_asset_prefix "$base")-x86_64.AppImage"
+  sha_name="$name.sha256"
   url="$base/$name"
   step "Downloading prebuilt AppImage (Linux x86_64 · $tag)"
   tmp="$(mktemp -d 2>/dev/null)" || return 1
@@ -428,6 +442,7 @@ for i in "${!VARIANTS[@]}"; do
 
   # 4c. Fallback: build from source locally (this is the only path that needs a clone)
   ensure_source "$variant" "$branch"
+  CLI_SOURCE_DIR="$subdir"
   step "Building [$variant] (swift build -c $CONFIG · first run may take a few minutes)"
   swift_build_fallback "$subdir" \
     || die "[$variant] build failed. On Linux, verify Swift 6 + libgtk-3-dev + libsqlite3-dev; on macOS 27, install Xcode or the macOS 26 SDK."
@@ -489,22 +504,16 @@ done
 # ── 6. Install OmniClock and the legacy command ──
 # BEGIN OMNICLOCK CLI INSTALL
 install_cli_commands() {
-  local old_primary_sha="" old_compat_sha="" new_primary_sha new_compat_sha b
+  local old_primary_sha="" old_compat_sha="" new_primary_sha new_compat_sha
   step "Installing omniclock CLI (tokenclock remains compatible)"
   mkdir -p "$BIN_DIR" || die "Cannot create CLI directory: $BIN_DIR"
   [ ! -f "$BIN_DIR/omniclock" ] || old_primary_sha="$(sha256_file "$BIN_DIR/omniclock")"
   [ ! -f "$BIN_DIR/tokenclock" ] || old_compat_sha="$(sha256_file "$BIN_DIR/tokenclock")"
   WRAPPER_TMP="$(mktemp "$BIN_DIR/.omniclock.new.XXXXXX")" || die "Cannot stage omniclock CLI"
   COMPAT_TMP="$(mktemp "$BIN_DIR/.tokenclock.new.XXXXXX")" || die "Cannot stage compatibility command"
-  WRAPPER_OK=0
-  for b in "${BRANCHES[@]}"; do
-    if [ -f "$BUILD_DIR/$b/cli/omniclock" ]; then
-      cp "$BUILD_DIR/$b/cli/omniclock" "$WRAPPER_TMP" || die "Cannot stage omniclock CLI"
-      WRAPPER_OK=1
-      break
-    fi
-  done
-  if [ "$WRAPPER_OK" -eq 0 ]; then
+  if [ -n "$CLI_SOURCE_DIR" ] && [ -f "$CLI_SOURCE_DIR/cli/omniclock" ]; then
+    cp "$CLI_SOURCE_DIR/cli/omniclock" "$WRAPPER_TMP" || die "Cannot stage omniclock CLI"
+  else
     WRAPPER_URL="${INSTALL_URL%/*}/omniclock"
     if ! curl -fL --retry 6 --retry-delay 2 --retry-all-errors --connect-timeout 15 \
           -o "$WRAPPER_TMP" "$WRAPPER_URL" 2>/dev/null || [ ! -s "$WRAPPER_TMP" ]; then
@@ -520,7 +529,7 @@ if [ ! -x "$compat_command" ]; then
   compat_command="$(command -v omniclock 2>/dev/null || true)"
 fi
 if [ -z "$compat_command" ] || [ ! -x "$compat_command" ]; then
-  printf '%s\n' 'OmniClock CLI is missing. Reinstall with: curl -fsSL https://www.ailyre.com/omniclock/install.sh | bash' >&2
+  printf '%s\n' 'OmniClock CLI is missing. Reinstall with: curl -fsSL https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.sh | bash' >&2
   exit 127
 fi
 exec "$compat_command" "$@"
