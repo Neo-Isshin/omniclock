@@ -23,7 +23,7 @@ LIQUID_GLASS_MIN_MACOS=26 # minimum major version for the liquid-glass variant
 
 # Update source: cmd_update pulls the latest install.sh from the public VPS.
 # Override with the TOKENCLOCK_INSTALL_URL environment variable.
-INSTALL_URL="${TOKENCLOCK_INSTALL_URL:-https://www.ailyre.com/omniclock/install.sh}"
+INSTALL_URL="${TOKENCLOCK_INSTALL_URL:-https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.sh}"
 PLATFORM="$(uname -s 2>/dev/null || echo unknown)"
 
 # ─────────────────────────── helpers ───────────────────────────
@@ -300,7 +300,7 @@ cmd_uninstall() {
   fi
   echo "${C_GREEN}✓ Uninstalled TokenClock (runtime + login-autostart config).${C_RESET}"
   echo "  The 'omniclock' CLI and 'tokenclock' compatibility command are kept. To reinstall:"
-  echo "    curl -fsSL https://www.ailyre.com/omniclock/install.sh | bash"
+  echo "    curl -fsSL https://raw.githubusercontent.com/Neo-Isshin/omniclock/main/cli/install.sh | bash"
   echo "  To also remove the CLI itself: rm -f ~/.local/bin/omniclock ~/.local/bin/tokenclock"
 }
 
