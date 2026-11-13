@@ -33,7 +33,7 @@
 
 **OmniClock** 原名 **TokenClock**，将日常使用 AI 时关心的信息和工具集中到桌面。表盘展示活动与选定额度，展开后可以查看用量历史、费用、行事本、AI 资讯，以及本地和网络诊断工具。
 
-**OmniClock v1.0.0** 同时提供 macOS Glass、macOS Normal、Windows 和 Linux 版本。仓库保留原有历史；macOS／Linux 使用 `omniclock` 主命令，原来的 `tokenclock` 命令、设置与用量历史继续兼容。
+**OmniClock 的主要功能开发随 v1.0.2 收官。** 本次发布提供 macOS Glass、macOS Normal 和 Linux 安装包。Windows 当前可下载的已验证版本为 v1.0.0。仓库保留原有历史；macOS／Linux 使用 `omniclock` 主命令，原来的 `tokenclock` 命令、设置与用量历史继续兼容。
 
 ## 功能
 
@@ -53,14 +53,14 @@ macOS 和 Windows 的总结面板集中展示小时用量、较昨日同期、�
 
 | 平台 | 版本 | 当前分发情况 |
 |---|---|---|
-| macOS 26+ | Glass 或 Normal | v1.0.0，Apple 芯片／Intel 通用包 |
-| macOS 12–25 | Normal | v1.0.0 通用包，不透明主题表盘 |
-| Linux x86_64 | Normal，GTK3／Cairo | v1.0.0 AppImage，要求 glibc 2.35+；缺少 FUSE 时可解包运行 |
+| macOS 26+ | Glass 或 Normal | v1.0.2，Apple 芯片／Intel 通用包 |
+| macOS 12–25 | Normal | v1.0.2 通用包，不透明主题表盘 |
+| Linux x86_64 | Normal，GTK3／Cairo | v1.0.2 AppImage，要求 glibc 2.35+；缺少 FUSE 时可解包运行 |
 | Windows 11 x86_64 | Normal，Win32 | v1.0.0 便携包；原生 Acrylic 毛玻璃面板与系统回退样式 |
 
 Glass 保留透明材质与专属光学效果，Normal 使用自己的主题和对比度规则。Normal 的 **Text Color／字体颜色** 快捷按钮只影响详情面板，表盘文字有独立的外观设置。
 
-四个版本对齐共享统计、价格、历史与发布版本。Windows 使用 Win32／WebView2 和原生 Acrylic；Linux 保留 GTK 面板，浏览器 DNS／WebRTC 泄漏项目在 Ailyre 完整检测页运行。项目测试在本机或自有测试机进行，不使用 GitHub Actions。
+各平台采用相同的用量统计、价格和历史记录格式。Windows 使用 Win32／WebView2 和原生 Acrylic；Linux 保留 GTK 面板，浏览器 DNS／WebRTC 泄漏项目在 Ailyre 完整检测页运行。项目测试在本机或自有测试机进行，不使用 GitHub Actions。
 
 ## 安装
 

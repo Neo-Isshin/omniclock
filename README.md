@@ -33,7 +33,7 @@
 
 **OmniClock**, formerly **TokenClock**, brings the everyday details of working with AI into one desktop companion. The clock shows activity and selected quotas; its panels provide usage history, costs, a notebook, AI news, and local or network diagnostics.
 
-**OmniClock v1.0.0** is available for macOS Glass, macOS Normal, Windows and Linux. The repository retains its history. Use `omniclock` on macOS/Linux; existing `tokenclock` commands, settings and usage history remain compatible.
+**OmniClock v1.0.2 marks the completion of major feature development.** This release includes the macOS Glass, macOS Normal and Linux packages. The latest verified Windows package is v1.0.0. The repository retains its history. Use `omniclock` on macOS/Linux; existing `tokenclock` commands, settings and usage history remain compatible.
 
 ## Features
 
@@ -53,14 +53,14 @@ The macOS and Windows summary panels bring together hourly usage, comparison wit
 
 | Platform | Edition | Current distribution |
 |---|---|---|
-| macOS 26+ | Glass or Normal | v1.0.0 universal packages for Apple Silicon and Intel |
-| macOS 12–25 | Normal | v1.0.0 universal package; opaque themed dial |
-| Linux x86_64 | Normal, GTK3/Cairo | v1.0.0 AppImage; glibc 2.35+; extraction fallback when FUSE is unavailable |
+| macOS 26+ | Glass or Normal | v1.0.2 universal packages for Apple Silicon and Intel |
+| macOS 12–25 | Normal | v1.0.2 universal package; opaque themed dial |
+| Linux x86_64 | Normal, GTK3/Cairo | v1.0.2 AppImage; glibc 2.35+; extraction fallback when FUSE is unavailable |
 | Windows 11 x86_64 | Normal, Win32 | v1.0.0 portable package; native Acrylic panels with system fallback |
 
 Glass has its own transparent materials and optical effects. Normal keeps its own themes and contrast rules. In Normal, the quick **Text Color** control affects the detail panel; dial text has a separate appearance setting.
 
-Shared accounting, pricing, history and release versions are aligned. Windows uses Win32/WebView2 with native Acrylic; Linux keeps GTK panels and opens browser-only DNS/WebRTC checks on the Ailyre page. Project tests run locally or on project-owned machines, not GitHub Actions.
+The editions share accounting, pricing and usage history formats. Windows uses Win32/WebView2 with native Acrylic; Linux keeps GTK panels and opens browser-only DNS/WebRTC checks on the Ailyre page. Project tests run locally or on project-owned machines, not GitHub Actions.
 
 ## Installation
 

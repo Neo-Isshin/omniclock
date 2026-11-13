@@ -5,7 +5,7 @@ struct AboutView: View {
     let onDone: () -> Void
 
     // ⚠️ 发版时同步版本号（与 cli/install.sh 的 RELEASE_TAG、cli/tokenclock 的 CLI_VERSION 一致）
-    private let version = "v1.0.0"
+    private let version = "v1.0.2"
     private let issuesURL = URL(string: "https://github.com/Neo-Isshin/omniclock/issues")!
     private let homepageURL = URL(string: "https://www.ailyre.com")!
     // 作者 GitHub 头像（置顶居中展示）。github.com/<user>.png 会 302 跳转到 avatars.githubusercontent.com 的真实头像。
@@ -28,10 +28,9 @@ struct AboutView: View {
             VStack(spacing: 4) {
                 Text("OmniClock")
                     .font(.system(size: 22, weight: .semibold))
-                Text(version + " · " + BillingText.choose("Hotfix 2", "热更新 2", "熱更新 2"))
+                Text(version)
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
-                    .help(AppConfig.buildRevision)
             }
 
             Divider()
