@@ -316,9 +316,9 @@ release_tag_for_variant() {
     return
   fi
   case "$1" in
-    glass)  echo "omniclock-v1.0.0" ;;
-    normal) echo "omniclock-v1.0.0" ;;
-    linux)  echo "omniclock-v1.0.0" ;;
+    glass)  echo "omniclock-v1.0.2" ;;
+    normal) echo "omniclock-v1.0.2" ;;
+    linux)  echo "omniclock-v1.0.2" ;;
   esac
 }
 release_base_for_tag() {
@@ -335,8 +335,8 @@ release_asset_prefix() {
 }
 tarball_sha256() {
   case "$1" in
-    glass)  echo "31a2d209027cf5f3836843c2642b44b1f404f3174e6b8e7d08cad71803a8a78d" ;;
-    normal) echo "f71377b2f5456874a8826109816749b4c021e30a8223f0beaf9f7de61cc05fbb" ;;
+    glass)  echo "7d0c6e5dffb64d0a74db4fee6c5f92e36aafbba219807e2cce407f713899531a" ;;
+    normal) echo "dd117253cb151faf0a8653e5bd86662237ec18ec62d0c039c45e0d4a24c33316" ;;
   esac
 }
 
